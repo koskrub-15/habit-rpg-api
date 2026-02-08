@@ -1,0 +1,34 @@
+services:
+  app:
+    build:
+      target: final
+
+    user: ${USER_ID:-1000}
+    ports:
+      - "60000:8000"
+
+    volumes:
+      - ./files:/wd/files
+
+    develop:
+      watch:
+        - action: sync
+          path: ./main.py
+          target: /wd/main.py
+        - action: sync
+          path: ./apps/
+          target: /wd/apps/
+
+        - action: rebuild
+          path: pyproject.toml
+        - action: rebuild
+          path: uv.lock
+        - action: rebuild
+          path: .python-version
+
+    # https://docs.docker.com/reference/compose-file/services/#init
+    # https://github.com/krallin/tini
+    # https://github.com/krallin/tini/issues/8
+    init: true
+
+    command: --host app

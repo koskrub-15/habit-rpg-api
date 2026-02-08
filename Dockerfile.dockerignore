@@ -1,0 +1,11 @@
+# Ignore all
+**
+
+# Exclude
+!uv.lock
+!pyproject.toml
+!.python-version
+
+!apps/
+!alembic/
+!alembic.ini
