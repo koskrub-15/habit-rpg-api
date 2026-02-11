@@ -1,10 +1,11 @@
-from typing import List, Optional
 from datetime import datetime
+from typing import List, Optional
 
-from pydantic import BaseModel,
+from pydantic import BaseModel
 
 from apps.db.base import BaseSchemaResponse, SimpleBaseSchemaCreate
-from apps.models.item import Rarity, ItemTheme
+from apps.models.item import ItemTheme, Rarity
+
 # Import specific models to access enums if needed
 # from apps.models.store import ShopItem, ShopRotation, ShopRotationItem
 
@@ -14,8 +15,8 @@ class ShopItemCreate(SimpleBaseSchemaCreate):
     # SimpleBaseSchemaCreate provides 'name'
     item_id: int
     price: int
-    rarity: Optional[Rarity] = Rarity.COMMON # Default from model
-    stock: Optional[int] = 1 # Default from model
+    rarity: Optional[Rarity] = Rarity.COMMON  # Default from model
+    stock: Optional[int] = 1  # Default from model
     available_from: Optional[datetime] = None
     available_until: Optional[datetime] = None
 
@@ -37,7 +38,7 @@ class ShopItemResponseShort(BaseSchemaResponse):
 
 
 class ShopItemResponse(ShopItemResponseShort):
-    item: "ItemResponseShort" # Forward reference to Item schema
+    item: "ItemResponseShort"  # Forward reference to Item schema
     stock: Optional[int] = None
     available_from: Optional[datetime] = None
     available_until: Optional[datetime] = None
