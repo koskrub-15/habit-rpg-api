@@ -1,10 +1,9 @@
 import enum
-from datetime import datetime
 
-from sqlalchemy import Column, DateTime, Enum, ForeignKey, Integer, String
+from sqlalchemy import Column, Enum, ForeignKey, Integer
 from sqlalchemy.orm import relationship
 
-from apps.db.base import Base
+from apps.db.base import Base, SimpleBase
 
 
 class TaskStatus(enum.Enum):
@@ -28,11 +27,7 @@ class Size(enum.Enum):
 class Task(Base):
     __tablename__ = "tasks"
 
-    description = Column(String(500), nullable=True)
     status = Column(Enum(TaskStatus), default=TaskStatus.TODO)
-    created_at = Column(DateTime, default=datetime.utcnow)
-    updated_at = Column(DateTime, default=datetime.utcnow, onupdate=datetime.utcnow)
-
     task_type = Column(Enum(TaskType), default=TaskType.REGULAR)
     task_size = Column(Enum(Size), default=Size.SMALL)
     user_id = Column(Integer, ForeignKey("users.id"), nullable=False)
@@ -53,12 +48,10 @@ class Task(Base):
         return f"<Task(title={self.name}, status={self.status})>"
 
 
-class SubTask(Base):
+class SubTask(SimpleBase):
     __tablename__ = "sub_tasks"
 
     status = Column(Enum(TaskStatus), default=TaskStatus.TODO)
-    created_at = Column(DateTime, default=datetime.utcnow)
-    updated_at = Column(DateTime, default=datetime.utcnow, onupdate=datetime.utcnow)
 
     task_id = Column(Integer, ForeignKey("tasks.id"), nullable=False)
     task = relationship("Task", back_populates="sub_tasks")

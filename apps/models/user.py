@@ -5,10 +5,10 @@ from typing import Optional, Union
 from sqlalchemy import Column, DateTime, Enum, ForeignKey, Integer, String
 from sqlalchemy.orm import relationship
 
-from apps.db.base import Base
+from apps.db.base import SimpleBase
+from apps.models.achievement import user_achievement_table
 from apps.models.habit import Habit, HabitStatus, HabitType
 from apps.models.item import Item, ItemType
-from apps.models.notification import Notification, UserNotificationPreference
 from apps.models.task import Size, Task, TaskStatus
 
 
@@ -20,11 +20,10 @@ class SlotType(enum.Enum):
     PET = "PET"
 
 
-class User(Base):
+class User(SimpleBase):
     __tablename__ = "users"
     email = Column(String(255), unique=True, nullable=False)
     password = Column(String(255), nullable=False)
-
     last_login = Column(DateTime, default=datetime.utcnow)
     health_points = Column(Integer, default=100)
     experience = Column(Integer, default=0)
@@ -32,7 +31,9 @@ class User(Base):
 
     habits = relationship("Habit", back_populates="user")
     tasks = relationship("Task", back_populates="user")
-    achievements = relationship("Achievement", back_populates="user")
+    achievements = relationship(
+        "Achievement", secondary=user_achievement_table, back_populates="users"
+    )
 
     # friends = relationship("User", back_populates="user")
     notifications = relationship("Notification", back_populates="user")
@@ -280,7 +281,7 @@ class User(Base):
         return f"<User(name={self.name}, level={self.calculate_level()})>"
 
 
-class EquippedItem(Base):
+class EquippedItem(SimpleBase):
     __tablename__ = "equipped_items"
 
     id = Column(Integer, primary_key=True)
@@ -295,7 +296,7 @@ class EquippedItem(Base):
         return f"<EquippedItem(slot={self.slot}, item={self.item.name})>"
 
 
-class InventoryItem(Base):
+class InventoryItem(SimpleBase):
     __tablename__ = "inventory_items"
 
     id = Column(Integer, primary_key=True)
