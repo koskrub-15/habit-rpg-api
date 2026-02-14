@@ -1,5 +1,7 @@
-from typing import Optional, List
+from __future__ import annotations
+
 from datetime import datetime
+from typing import List, Optional
 
 from pydantic import BaseModel, ConfigDict
 
@@ -7,12 +9,11 @@ from apps.db.base import BaseSchemaCreate, BaseSchemaResponse, SimpleBaseSchemaC
 from apps.models.notification import NotificationType
 
 
-# --- Notification Schemas ---
 class NotificationCreate(BaseSchemaCreate):
-    # BaseSchemaCreate provides 'name', 'description'
     user_id: int
     notification_type: NotificationType
-    message: str # 'name' from BaseSchemaCreate will likely be used as a title or short identifier
+    message: str
+
 
 class NotificationUpdate(BaseModel):
     name: Optional[str] = None
@@ -21,18 +22,20 @@ class NotificationUpdate(BaseModel):
     notification_type: Optional[NotificationType] = None
     message: Optional[str] = None
 
+
 class NotificationResponse(BaseSchemaResponse):
-    # BaseSchemaResponse provides id, name, created_at, updated_at
+    description: str
     user_id: int
     notification_type: NotificationType
     message: str
-    user: "UserResponseShort" # Forward reference
+    user: "UserResponseShort"
 
-# --- UserNotificationPreference Schemas ---
-class UserNotificationPreferenceCreate(SimpleBaseSchemaCreate): # Inherits name
+
+class UserNotificationPreferenceCreate(SimpleBaseSchemaCreate):
     user_id: int
     notification_type: NotificationType
     is_enabled: Optional[bool] = False
+
 
 class UserNotificationPreferenceUpdate(BaseModel):
     name: Optional[str] = None
@@ -40,9 +43,9 @@ class UserNotificationPreferenceUpdate(BaseModel):
     notification_type: Optional[NotificationType] = None
     is_enabled: Optional[bool] = None
 
+
 class UserNotificationPreferenceResponse(BaseSchemaResponse):
-    # BaseSchemaResponse provides id, name, created_at, updated_at
     user_id: int
     notification_type: NotificationType
     is_enabled: bool
-    user: "UserResponseShort" # Forward reference
+    user: "UserResponseShort"

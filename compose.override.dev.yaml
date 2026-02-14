@@ -3,7 +3,6 @@ services:
     build:
       target: final
 
-    user: ${USER_ID:-1000}
     ports:
       - "60000:8000"
 
@@ -12,23 +11,47 @@ services:
 
     develop:
       watch:
-        - action: sync
-          path: ./main.py
-          target: /wd/main.py
+        # Sync the entire apps directory
         - action: sync
           path: ./apps/
           target: /wd/apps/
 
+        # Rebuild on dependency changes
         - action: rebuild
           path: pyproject.toml
         - action: rebuild
           path: uv.lock
+          # Rebuild on Python version change
         - action: rebuild
           path: .python-version
 
-    # https://docs.docker.com/reference/compose-file/services/#init
-    # https://github.com/krallin/tini
-    # https://github.com/krallin/tini/issues/8
     init: true
 
-    command: --host app
+    command: ["--host", "0.0.0.0", "--port", "8000", "--reload"]
+    environment:
+      - DATABASE_URL
+      - SECRET_KEY
+      - DEBUG
+      - API_BASE_URL
+      - PROJECT_NAME
+    depends_on:
+      - db
+
+  db:
+    image: postgres:18-alpine
+    ports:
+      - "5432:5432"
+    volumes:
+      - postgres_data:/var/lib/postgresql/data
+    environment:
+      - POSTGRES_DB=habit_api_db
+      - POSTGRES_USER=user
+      - POSTGRES_PASSWORD=password
+    healthcheck:
+      test: ["CMD-SHELL", "pg_isready -U user -d habit_api_db"]
+      interval: 5s
+      timeout: 5s
+      retries: 5
+
+volumes:
+  postgres_data:

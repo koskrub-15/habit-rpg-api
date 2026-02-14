@@ -1,10 +1,11 @@
+from __future__ import annotations
+
 from typing import List, Optional
 
 from pydantic import BaseModel
 
 from apps.db.base import BaseSchemaCreate, BaseSchemaResponse
 from apps.models.item import ItemTheme, ItemType, Rarity
-from apps.schemas.store_rotation import ShopItemResponseShort
 
 
 class ItemCreate(BaseSchemaCreate):

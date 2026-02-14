@@ -1,4 +1,12 @@
-from sqlalchemy import Boolean, Column, DateTime, Enum, ForeignKey, Integer
+from sqlalchemy import (
+    Boolean,
+    Column,
+    DateTime,
+    Enum,
+    ForeignKey,
+    Integer,
+    UniqueConstraint,
+)
 from sqlalchemy.orm import relationship
 
 from apps.db.base import SimpleBase

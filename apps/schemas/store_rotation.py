@@ -1,3 +1,5 @@
+from __future__ import annotations
+
 from datetime import datetime
 from typing import List, Optional
 
@@ -6,17 +8,12 @@ from pydantic import BaseModel
 from apps.db.base import BaseSchemaResponse, SimpleBaseSchemaCreate
 from apps.models.item import ItemTheme, Rarity
 
-# Import specific models to access enums if needed
-# from apps.models.store import ShopItem, ShopRotation, ShopRotationItem
 
-
-# --- ShopItem Schemas ---
 class ShopItemCreate(SimpleBaseSchemaCreate):
-    # SimpleBaseSchemaCreate provides 'name'
     item_id: int
     price: int
-    rarity: Optional[Rarity] = Rarity.COMMON  # Default from model
-    stock: Optional[int] = 1  # Default from model
+    rarity: Optional[Rarity] = Rarity.COMMON
+    stock: Optional[int] = 1
     available_from: Optional[datetime] = None
     available_until: Optional[datetime] = None
 
@@ -32,22 +29,19 @@ class ShopItemUpdate(BaseModel):
 
 
 class ShopItemResponseShort(BaseSchemaResponse):
-    # BaseSchemaResponse provides id, name, created_at, updated_at
     price: int
     rarity: Rarity
 
 
 class ShopItemResponse(ShopItemResponseShort):
-    item: "ItemResponseShort"  # Forward reference to Item schema
+    item: "ItemResponseShort"
     stock: Optional[int] = None
     available_from: Optional[datetime] = None
     available_until: Optional[datetime] = None
     shop_rotation_items: List["ShopRotationItemResponseShort"] = []
 
 
-# --- ShopRotation Schemas ---
 class ShopRotationCreate(SimpleBaseSchemaCreate):
-    # SimpleBaseSchemaCreate provides 'name'
     start_date: datetime
     end_date: datetime
     theme: Optional[ItemTheme] = None
@@ -61,7 +55,6 @@ class ShopRotationUpdate(BaseModel):
 
 
 class ShopRotationResponseShort(BaseSchemaResponse):
-    # BaseSchemaResponse provides id, name, created_at, updated_at
     start_date: datetime
     end_date: datetime
     theme: Optional[ItemTheme] = None
@@ -71,12 +64,7 @@ class ShopRotationResponse(ShopRotationResponseShort):
     rotation_items: List["ShopRotationItemResponseShort"] = []
 
 
-# --- ShopRotationItem Schemas ---
-# Note: ShopRotationItem model inherits SimpleBase, meaning it has a 'name'.
-# If you didn't intend for it to have a name, consider using a plain BaseModel
-# for creation or altering your ORM model. Assuming 'name' is desired.
 class ShopRotationItemCreate(SimpleBaseSchemaCreate):
-    # SimpleBaseSchemaCreate provides 'name'
     rotation_id: int
     shop_item_id: int
     is_random_common: Optional[bool] = False
@@ -94,7 +82,6 @@ class ShopRotationItemUpdate(BaseModel):
 
 
 class ShopRotationItemResponseShort(BaseSchemaResponse):
-    # BaseSchemaResponse provides id, name, created_at, updated_at
     rotation_id: int
     shop_item_id: int
 

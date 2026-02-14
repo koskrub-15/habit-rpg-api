@@ -1,8 +1,10 @@
+from __future__ import annotations
+
 from typing import List, Optional
 
 from pydantic import BaseModel
 
-from apps.db.base import BaseSchemaCreate, BaseSchemaResponse, BaseSchemaUpdate
+from apps.db.base import BaseSchemaCreate, BaseSchemaResponse
 from apps.models.habit import HabitStatus, HabitType
 from apps.models.task import Size
 

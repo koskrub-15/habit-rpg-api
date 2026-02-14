@@ -1,9 +1,18 @@
+from __future__ import annotations
+
 from typing import List, Optional
 
 from pydantic import BaseModel
 
 from apps.db.base import BaseSchemaResponse, SimpleBaseSchemaCreate
-from apps.schemas.notification import NotificationResponse, UserNotificationPreferenceResponse
+from apps.schemas.achievement import AchievementResponseShort
+from apps.schemas.habit import HabitResponseShort
+from apps.schemas.item import ItemResponseShort
+from apps.schemas.notification import (
+    NotificationResponse,
+    UserNotificationPreferenceResponse,
+)
+from apps.schemas.task import TaskResponseShort
 
 
 class UserCreate(SimpleBaseSchemaCreate):

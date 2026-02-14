@@ -1,3 +1,5 @@
+from __future__ import annotations
+
 from typing import List, Optional
 
 from pydantic import BaseModel
@@ -37,7 +39,7 @@ class RewardCreate(SimpleBaseSchemaCreate):
     health_points: int
 
 
-class RewardUpdate(BaseSchemaUpdate):
+class RewardUpdate(BaseModel):
     name: Optional[str] = None
     gold: Optional[int] = None
     experience: Optional[int] = None
