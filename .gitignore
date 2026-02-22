@@ -19,3 +19,11 @@
 !alembic/**
 !tests/
 !tests/**
+!pyproject.toml
+apps/**/__pycache__/
+apps/**/*.pyc
+apps/**/*.env
+apps/**/__pycache__/
+apps/**/*.pyc
+tests/**/__pycache__/
+tests/**/*.pyc

@@ -12,7 +12,7 @@ class TaskCreate(BaseSchemaCreate):
     task_type: Optional[TaskType] = TaskType.REGULAR
     task_size: Optional[Size] = Size.MEDIUM
     user_id: Optional[int] = None
-    sub_tasks: Optional[List["SubTaskCreate"]] = None
+    sub_tasks: Optional[List["SubTaskCreate"]] = []
 
 
 class TaskUpdate(BaseModel):

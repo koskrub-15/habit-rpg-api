@@ -2,8 +2,10 @@ from typing import AsyncGenerator
 
 from sqlalchemy.ext.asyncio import AsyncSession, create_async_engine
 from sqlalchemy.orm import sessionmaker
+from apps.db.base import mapper_registry
 
 from apps.core.config import settings
+import apps.models
 
 DATABASE_URL = settings.DATABASE_URL
 
@@ -21,6 +23,7 @@ AsyncSessionLocal = sessionmaker(
     autoflush=False,
 )
 
+mapper_registry.configure()
 
 async def get_db() -> AsyncGenerator[AsyncSession, None]:
     """Dependency to get an async database session."""

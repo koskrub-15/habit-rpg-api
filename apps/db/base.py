@@ -1,5 +1,4 @@
-from datetime import datetime
-from this import d
+from datetime import datetime, timezone
 
 from pydantic import BaseModel, ConfigDict
 from sqlalchemy import Column, DateTime, Integer, String, Text
@@ -12,8 +11,8 @@ mapper_registry = registry()
 class Base:
     id = Column(Integer, primary_key=True, index=True)
     name = Column(String(200), nullable=False)
-    created_at = Column(DateTime, default=datetime.utcnow)
-    updated_at = Column(DateTime, default=datetime.utcnow, onupdate=datetime.utcnow)
+    created_at = Column(DateTime, default=lambda: datetime.now(timezone.utc))
+    updated_at = Column(DateTime, default=lambda: datetime.now(timezone.utc), onupdate=lambda: datetime.now(timezone.utc))
     description = Column(Text, nullable=True)
 
 
@@ -21,8 +20,8 @@ class Base:
 class SimpleBase:
     id = Column(Integer, primary_key=True, index=True)
     name = Column(String(200), nullable=False)
-    created_at = Column(DateTime, default=datetime.utcnow)
-    updated_at = Column(DateTime, default=datetime.utcnow, onupdate=datetime.utcnow)
+    created_at = Column(DateTime, default=lambda: datetime.now(timezone.utc))
+    updated_at = Column(DateTime, default=lambda: datetime.now(timezone.utc), onupdate=lambda: datetime.now(timezone.utc))
 
 
 class BaseSchemaCreate(BaseModel):

@@ -9,7 +9,7 @@ from apps.models.item import ItemTheme, ItemType, Rarity
 
 
 class ItemCreate(BaseSchemaCreate):
-    type: ItemType
+    item_type: ItemType
     defense: Optional[int] = 0
     attack: Optional[int] = 0
     pet_power: Optional[int] = 0
@@ -29,12 +29,12 @@ class ItemUpdate(BaseModel):
     rarity: Optional[Rarity] = None
     available_in_shop: Optional[bool] = None
     theme: Optional[ItemTheme] = None
-    type: Optional[ItemType] = None
+    item_type: Optional[ItemType] = None
 
 
 class ItemResponseShort(BaseSchemaResponse):
     description: str
-    type: ItemType
+    item_type: ItemType
 
     rarity: Optional[Rarity] = None
 

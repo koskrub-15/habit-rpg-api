@@ -2,6 +2,8 @@ import asyncio
 import logging
 
 from fastapi import FastAPI
+from fastapi.encoders import jsonable_encoder
+from starlette.responses import JSONResponse
 
 from apps.api.v1.router import api_router
 from apps.core.config import settings
@@ -13,9 +15,15 @@ logging.basicConfig(
 )
 
 
+class CustomJSONResponse(JSONResponse):
+    def render(self, content: any) -> bytes:
+        return super().render(jsonable_encoder(content))
+
+
 app = FastAPI(
     title=settings.PROJECT_NAME,
     debug=settings.DEBUG,
+    default_response_class=CustomJSONResponse,
 )
 
 

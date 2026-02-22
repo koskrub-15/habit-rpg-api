@@ -1,5 +1,5 @@
 import enum
-from datetime import datetime
+from datetime import datetime, timezone
 
 from sqlalchemy import (
     Boolean,
@@ -30,7 +30,7 @@ class Notification(Base):
     user_id = Column(Integer, ForeignKey("users.id"), nullable=False)
     notification_type = Column(Enum(NotificationType), nullable=False)
     message = Column(String(500), nullable=False)
-    created_at = Column(DateTime, default=datetime.utcnow)
+    created_at = Column(DateTime, default=lambda: datetime.now(timezone.utc))
 
     user = relationship("User", back_populates="notifications")
 

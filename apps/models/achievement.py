@@ -40,10 +40,11 @@ user_achievement_table = Table(
 class Reward(SimpleBase):
     __tablename__ = "rewards"
     gold = Column(Integer, nullable=False)
-    expierence = Column(Integer, nullable=False)
+    experience = Column(Integer, nullable=False)
     health_points = Column(Integer, nullable=False)
 
     items = relationship("Item", secondary="reward_item", back_populates="rewards")
+    achievements = relationship("Achievement", secondary="reward_achievement", back_populates="rewards")
 
 
 reward_item_table = Table(

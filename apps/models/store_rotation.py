@@ -52,6 +52,7 @@ class ShopRotationItem(SimpleBase):
     shop_item_id = Column(Integer, ForeignKey("shop_items.id"), nullable=False)
     is_random_common = Column(Boolean, default=True)
     is_themed = Column(Boolean, default=False)
+    slot_in_display = Column(Integer, nullable=True)
 
     __table_args__ = (
         UniqueConstraint(

@@ -3,10 +3,10 @@ Factory for generating FastAPI CRUD routers
 Eliminates code duplication for standard operations
 """
 
-from typing import Any, Generic, List, Optional, Type, TypeVar
+from typing import Any, Generic, List, Optional, Type, TypeVar, Union, get_args, get_origin
 
 from fastapi import APIRouter, Depends, HTTPException, Query, status
-from pydantic import BaseModel
+from pydantic import BaseModel, ConfigDict
 from sqlalchemy.ext.asyncio import AsyncSession
 
 from apps.db.session import get_db
@@ -15,6 +15,50 @@ CreateSchemaType = TypeVar("CreateSchemaType", bound=BaseModel)
 UpdateSchemaType = TypeVar("UpdateSchemaType", bound=BaseModel)
 ResponseSchemaType = TypeVar("ResponseSchemaType", bound=BaseModel)
 ResponseShortSchemaType = TypeVar("ResponseShortSchemaType", bound=BaseModel)
+
+
+def _get_relationship_names_from_schema(schema: Type[BaseModel]) -> List[str]:
+    """
+    Analyzes a Pydantic schema to identify field names that represent relationships.
+    Detects fields annotated as:
+    - List[PydanticModel]
+    - PydanticModel (Optional or not)
+    - Optional[List[PydanticModel]]
+    Supports string forward references.
+    """
+    relationships = []
+    for field_name, field_info in schema.model_fields.items():
+        annotation = field_info.annotation
+        
+        def is_model_type(tp):
+            # Unwrap Optional/Union
+            if get_origin(tp) is Union:
+                return any(is_model_type(arg) for arg in get_args(tp))
+            
+            # Check for List
+            if get_origin(tp) is list:
+                return is_model_type(get_args(tp)[0])
+
+            # Check for BaseModel subclass
+            if isinstance(tp, type) and issubclass(tp, BaseModel):
+                return True
+            
+            # Check for string or ForwardRef (likely a Pydantic model in our schemas)
+            if isinstance(tp, str) or "ForwardRef" in str(type(tp)):
+                # Exclude basic types if they appear as strings for some reason
+                if tp in ("int", "str", "float", "bool", "datetime"):
+                    return False
+                return True
+            
+            return False
+
+        if is_model_type(annotation):
+            # Exclude fields that are clearly not ORM relationships but might use Pydantic models
+            # In this project, most such fields ARE relationships.
+            # Basic types like int, str etc are not detected by is_model_type.
+            relationships.append(field_name)
+
+    return relationships
 
 
 class RouterFactory(
@@ -69,6 +113,8 @@ class RouterFactory(
         self.with_relations_method_multi = with_relations_method_multi
         self.related_resources = related_resources or {}
         self.bulk_create_limit = bulk_create_limit
+        self.response_schema_relationships = _get_relationship_names_from_schema(response_schema)
+        self.response_short_schema_relationships = _get_relationship_names_from_schema(response_short_schema)
 
         self.router = APIRouter(prefix=prefix, tags=[tag])
 
@@ -105,9 +151,10 @@ class RouterFactory(
 
             if self.with_relations_method:
                 method = getattr(self.crud, self.with_relations_method)
-                return await method(db, resource.id)
+                resource_with_relations = await method(db, resource.id, relationships=self.response_schema_relationships)
             else:
-                return resource
+                resource_with_relations = await self.crud.get(db, resource.id, relationships=self.response_schema_relationships)
+            return self.response_schema.model_validate(resource_with_relations)
 
     def _add_list_endpoint(self):
         """GET / - list resources"""
@@ -151,8 +198,9 @@ class RouterFactory(
                 limit=limit,
                 search_fields=search_fields,
                 order_by=order_fields,
+                relationships=self.response_short_schema_relationships,
             )
-            return resources
+            return [self.response_short_schema.model_validate(r) for r in resources]
 
     def _add_count_endpoint(self):
         """GET /count - resource count"""
@@ -178,17 +226,17 @@ class RouterFactory(
 
             if self.with_relations_method:
                 method = getattr(self.crud, self.with_relations_method)
-                resource = await method(db, id)
+                resource_with_relations = await method(db, id, relationships=self.response_schema_relationships)
             else:
-                resource = await self.crud.get(db, id)
+                resource_with_relations = await self.crud.get(db, id, relationships=self.response_schema_relationships)
 
-            if not resource:
+            if not resource_with_relations:
                 raise HTTPException(
                     status_code=status.HTTP_404_NOT_FOUND,
                     detail=f"{self.resource_name.capitalize()} with id {id} not found",
                 )
 
-            return resource
+            return self.response_schema.model_validate(resource_with_relations)
 
     def _add_update_endpoint(self):
         """PATCH /{id} - update resource"""
@@ -206,9 +254,10 @@ class RouterFactory(
 
             if self.with_relations_method:
                 method = getattr(self.crud, self.with_relations_method)
-                return await method(db, resource.id)
+                resource_with_relations = await method(db, resource.id, relationships=self.response_schema_relationships)
             else:
-                return resource
+                resource_with_relations = await self.crud.get(db, resource.id, relationships=self.response_schema_relationships)
+            return self.response_schema.model_validate(resource_with_relations)
 
     def _add_delete_endpoint(self):
         """DELETE /{id} - delete resource"""
@@ -267,9 +316,16 @@ class RouterFactory(
             if self.with_relations_method_multi:
                 method = getattr(self.crud, self.with_relations_method_multi)
                 resource_ids = [r.id for r in resources]
-                return await method(db, resource_ids)
+                resources_with_relations = await method(db, resource_ids, relationships=self.response_schema_relationships)
+                return [self.response_schema.model_validate(r) for r in resources_with_relations]
             else:
-                return resources
+                # After bulk creation, re-fetch each resource with relationships for proper serialization
+                resources_with_relations = []
+                for res in resources:
+                    full_res = await self.crud.get(db, res.id, relationships=self.response_schema_relationships)
+                    if full_res:
+                        resources_with_relations.append(full_res)
+                return [self.response_schema.model_validate(r) for r in resources_with_relations]
 
     def _add_related_resources_endpoints(self):
         """Add endpoints for related resources (e.g., /plots/{id}/chapters)"""

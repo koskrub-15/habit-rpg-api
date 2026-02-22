@@ -1,5 +1,5 @@
 import enum
-from datetime import datetime
+from datetime import datetime, timezone
 from typing import Optional, Union
 
 from sqlalchemy import Column, DateTime, Enum, ForeignKey, Integer, String
@@ -24,7 +24,7 @@ class User(SimpleBase):
     __tablename__ = "users"
     email = Column(String(255), unique=True, nullable=False)
     password = Column(String(255), nullable=False)
-    last_login = Column(DateTime, default=datetime.utcnow)
+    last_login = Column(DateTime, default=lambda: datetime.now(timezone.utc))
     health_points = Column(Integer, default=100)
     experience = Column(Integer, default=0)
     gold = Column(Integer, default=0)
@@ -155,7 +155,7 @@ class User(SimpleBase):
     def reset_daily_tasks(self):
         """Reset all daily tasks for this user."""
         for task in self.tasks:
-            task.reset_if_daily()
+            task.reset_daily_task()
 
     BASE_TASK_REWARD = 10
     BASE_HABIT_REWARD = 5
@@ -278,7 +278,7 @@ class User(SimpleBase):
         pass
 
     def __repr__(self):
-        return f"<User(name={self.name}, level={self.calculate_level()})>"
+        return f"<User(name={self.name}, email={self.email})>"
 
 
 class EquippedItem(SimpleBase):

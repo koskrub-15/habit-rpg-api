@@ -33,7 +33,7 @@ class UserResponseShort(BaseSchemaResponse):
     email: str
 
 
-class UserResponse(BaseSchemaResponse):
+class UserResponse(UserResponseShort):
     health_points: int
     experience: int
     gold: int

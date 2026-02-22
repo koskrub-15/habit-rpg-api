@@ -21,11 +21,11 @@ class AchievementUpdate(BaseModel):
 
 class AchievementResponseShort(BaseSchemaResponse):
     description: str
+    condition_type: str
+    condition_value: int
 
 
 class AchievementResponse(AchievementResponseShort):
-    condition_type: str
-    condition_value: int
     rewards: List["RewardResponseShort"] = []
 
 

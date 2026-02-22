@@ -26,6 +26,7 @@ class HabitResponseShort(BaseSchemaResponse):
     user_id: int
     description: str
     habit_size: Size
+    habit_type: HabitType
     status: HabitStatus
 
 
