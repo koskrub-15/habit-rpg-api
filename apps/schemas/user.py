@@ -5,6 +5,7 @@ from typing import List, Optional
 from pydantic import BaseModel
 
 from apps.db.base import BaseSchemaResponse, SimpleBaseSchemaCreate
+from apps.models.user import SlotType
 from apps.schemas.achievement import AchievementResponseShort
 from apps.schemas.habit import HabitResponseShort
 from apps.schemas.item import ItemResponseShort
@@ -44,3 +45,37 @@ class UserResponse(UserResponseShort):
     habits: List["HabitResponseShort"] = []
     notifications: List["NotificationResponse"] = []
     notification_preferences: List["UserNotificationPreferenceResponse"] = []
+
+
+class CompleteActivityRequest(BaseModel):
+    """input data for \"complete_activity\" """
+
+    activity_type: str
+    activity_id: int
+    performed: bool = True
+
+
+class CompleteActivityResponse(BaseModel):
+    """result of \"complete_activity\" operation"""
+
+    activity_type: str
+    activity_name: str
+    exp_gained: int
+    gold_gained: int
+    health_change: int
+    new_level: int
+    current_health: int
+    streak: Optional[str] = None
+
+
+class UpdateInventoryRequest(BaseModel):
+    item_id: int
+    quantity: int
+
+
+class EquipItemRequest(BaseModel):
+    item_id: int
+    slot: SlotType
+
+class UnequipItemRequest(BaseModel):
+    slot: SlotType
