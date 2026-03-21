@@ -82,6 +82,25 @@ class BaseCRUD(Generic[ModelType, CreateSchemaType, UpdateSchemaType]):
                 detail=DATABASE_ERROR_MESSAGE,
             )
 
+    def _get_rel_attr(self, model: Type[DeclarativeBase], rel_name: str) -> Any:
+        """Helper to get relationship attribute from model, trying with leading underscore if not found."""
+        if hasattr(model, rel_name):
+            attr = getattr(model, rel_name)
+            # Check if it's a relationship or similar ORM attribute
+            from sqlalchemy.orm import RelationshipProperty
+            if isinstance(getattr(attr, "property", None), RelationshipProperty):
+                return attr
+        
+        # Try with leading underscore
+        und_rel_name = f"_{rel_name}"
+        if hasattr(model, und_rel_name):
+            attr = getattr(model, und_rel_name)
+            from sqlalchemy.orm import RelationshipProperty
+            if isinstance(getattr(attr, "property", None), RelationshipProperty):
+                return attr
+        
+        return None
+
     async def get(
         self,
         db: AsyncSession,
@@ -96,13 +115,37 @@ class BaseCRUD(Generic[ModelType, CreateSchemaType, UpdateSchemaType]):
             db: Database session
             id: ID value
             raise_not_found: Raise 404 if not found
-            relationships: List of relationships to eagerly load
+            relationships: List of relationships to eagerly load (supports dot notation for nested)
         """
         try:
             stmt = select(self.model).where(getattr(self.model, self.id_field) == id)
             if relationships:
                 for rel in relationships:
-                    stmt = stmt.options(selectinload(getattr(self.model, rel)))
+                    if "." in rel:
+                        parts = rel.split(".")
+                        # Handle first part
+                        rel_attr = self._get_rel_attr(self.model, parts[0])
+                        if rel_attr is not None:
+                            load_opt = selectinload(rel_attr)
+                            # Handle subsequent parts
+                            curr_model = rel_attr.property.mapper.class_
+                            for part in parts[1:]:
+                                part_attr = self._get_rel_attr(curr_model, part)
+                                if part_attr is not None:
+                                    load_opt = load_opt.selectinload(part_attr)
+                                    curr_model = part_attr.property.mapper.class_
+                                else:
+                                    # Fallback to string if not a relationship (might be wrong but best effort)
+                                    load_opt = load_opt.selectinload(part)
+                            stmt = stmt.options(load_opt)
+                    else:
+                        rel_attr = self._get_rel_attr(self.model, rel)
+                        if rel_attr is not None:
+                            stmt = stmt.options(selectinload(rel_attr))
+                        else:
+                            # Fallback to string if not found as ORM attribute
+                            if hasattr(self.model, rel):
+                                stmt = stmt.options(selectinload(getattr(self.model, rel)))
 
             result = await db.execute(stmt)
             obj = result.scalar_one_or_none()
@@ -152,7 +195,27 @@ class BaseCRUD(Generic[ModelType, CreateSchemaType, UpdateSchemaType]):
 
             if relationships:
                 for rel in relationships:
-                    stmt = stmt.options(selectinload(getattr(self.model, rel)))
+                    if "." in rel:
+                        parts = rel.split(".")
+                        rel_attr = self._get_rel_attr(self.model, parts[0])
+                        if rel_attr is not None:
+                            load_opt = selectinload(rel_attr)
+                            curr_model = rel_attr.property.mapper.class_
+                            for part in parts[1:]:
+                                part_attr = self._get_rel_attr(curr_model, part)
+                                if part_attr is not None:
+                                    load_opt = load_opt.selectinload(part_attr)
+                                    curr_model = part_attr.property.mapper.class_
+                                else:
+                                    load_opt = load_opt.selectinload(part)
+                            stmt = stmt.options(load_opt)
+                    else:
+                        rel_attr = self._get_rel_attr(self.model, rel)
+                        if rel_attr is not None:
+                            stmt = stmt.options(selectinload(rel_attr))
+                        else:
+                            if hasattr(self.model, rel):
+                                stmt = stmt.options(selectinload(getattr(self.model, rel)))
 
             if filters:
                 conditions = []

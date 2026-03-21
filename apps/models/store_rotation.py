@@ -30,7 +30,7 @@ class ShopItem(SimpleBase):
     )
 
     def __repr__(self):
-        return f"<ShopItem(id={self.id}, item_id={self.item_id}, price={self.price}, rarity={self.rarity}, stock={self.stock}, available_from={self.available_from}, available_until={self.available_until}, created_at={self.created_at}, updated_at={self.updated_at})>"
+        return f"<ShopItem(id={self.id}, item_id={self.item_id}, price={self.price}, rarity={self.rarity}, stock={self.stock}, available_from={self.available_from}, available_until={self.available_until})>"
 
 
 class ShopRotation(SimpleBase):

@@ -47,6 +47,18 @@ class UserResponse(UserResponseShort):
     notification_preferences: List["UserNotificationPreferenceResponse"] = []
 
 
+class EquippedItemResponse(BaseSchemaResponse):
+    user_id: int
+    item_id: int
+    slot: SlotType
+
+
+class InventoryItemResponse(BaseSchemaResponse):
+    user_id: int
+    item_id: int
+    quantity: int
+
+
 class CompleteActivityRequest(BaseModel):
     """input data for \"complete_activity\" """
 

@@ -9,6 +9,8 @@ from apps.schemas.user import (
     CompleteActivityRequest,
     CompleteActivityResponse,
     EquipItemRequest,
+    EquippedItemResponse,
+    InventoryItemResponse,
     UnequipItemRequest,
     UpdateInventoryRequest,
     UserCreate,
@@ -16,6 +18,8 @@ from apps.schemas.user import (
     UserResponseShort,
     UserUpdate,
 )
+
+router = APIRouter(prefix="/users", tags=["Users"])
 
 user_factory = RouterFactory(
     crud=user_crud,
@@ -26,11 +30,13 @@ user_factory = RouterFactory(
     resource_name="user",
     resource_name_plural="users",
     tag="Users",
-    prefix="/users",
+    prefix="",
     with_relations_method="get_user_with_relations",
 )
 
-router = user_factory.create_router()
+# Generate standard CRUD endpoints
+user_crud_router = user_factory.create_router()
+router.include_router(user_crud_router)
 
 
 @router.post(
@@ -44,7 +50,8 @@ async def complete_activity(
     db: AsyncSession = Depends(get_db),
 ):
     """
-    Mark a task or habit as complete for a user, applying rewards and effects.
+    Mark a task as completed or record a habit performance.
+    Awards experience and gold to the user.
     """
     return await user_crud.complete_activity(
         db,
@@ -57,7 +64,7 @@ async def complete_activity(
 
 @router.post(
     "/{user_id}/reset-daily-tasks",
-    status_code=status.HTTP_204_NO_CONTENT,
+    status_code=status.HTTP_200_OK,
     summary="Reset all daily tasks for a user",
 )
 async def reset_daily_tasks(user_id: int, db: AsyncSession = Depends(get_db)):
@@ -69,7 +76,9 @@ async def reset_daily_tasks(user_id: int, db: AsyncSession = Depends(get_db)):
 
 
 @router.post(
-    "/{user_id}/inventory/add",
+    "/{user_id}/inventory",
+    response_model=InventoryItemResponse,
+    status_code=status.HTTP_201_CREATED,
     summary="Add an item to user's inventory",
 )
 async def add_to_inventory(
@@ -80,34 +89,36 @@ async def add_to_inventory(
     """
     Add a specified quantity of an item to a user's inventory.
     """
-    await user_crud.add_to_inventory(
+    inventory_item = await user_crud.add_to_inventory(
         db, user_id=user_id, item_id=body.item_id, quantity=body.quantity
     )
-    return {"message": "Inventory updated"}
+    return inventory_item
 
 
-@router.post(
-    "/{user_id}/inventory/remove",
+@router.delete(
+    "/{user_id}/inventory/{item_id}",
+    status_code=status.HTTP_200_OK,
     summary="Remove an item from user's inventory",
 )
 async def remove_from_inventory(
     user_id: int,
-    body: UpdateInventoryRequest,
+    item_id: int,
+    quantity: int = 1,
     db: AsyncSession = Depends(get_db),
 ):
     """
     Remove a specified quantity of an item from a user's inventory.
     """
     await user_crud.remove_from_inventory(
-        db, user_id=user_id, item_id=body.item_id, quantity=body.quantity
+        db, user_id=user_id, item_id=item_id, quantity=quantity
     )
-    return {"message": "Inventory updated"}
+    return
 
 
 @router.post(
-    "/{user_id}/equip-item",
+    "/{user_id}/equip",
     summary="Equip an item to a slot",
-    response_model=UserResponse,
+    response_model=EquippedItemResponse,
 )
 async def equip_item(
     user_id: int,
@@ -118,14 +129,14 @@ async def equip_item(
     Equip an item from the user's inventory to a specified equipment slot.
     If an item is already in the slot, it will be unequipped and returned to the inventory.
     """
-    await user_crud.equip_item(
+    equipped = await user_crud.equip_item(
         db, user_id=user_id, item_id=body.item_id, slot=body.slot
     )
-    return await user_crud.get_user_with_relations(db, user_id)
+    return equipped
 
 
 @router.post(
-    "/{user_id}/unequip-item",
+    "/{user_id}/unequip",
     summary="Unequip an item from a slot",
     response_model=UserResponse,
 )
@@ -138,4 +149,16 @@ async def unequip_item(
     Unequip an item from a specified equipment slot and return it to the inventory.
     """
     await user_crud.unequip_item(db, user_id=user_id, slot=body.slot)
+    return await user_crud.get_user_with_relations(db, user_id)
+
+
+@router.get(
+    "/{user_id}/details",
+    response_model=UserResponse,
+    summary="Get user details with relations",
+)
+async def get_user_details(user_id: int, db: AsyncSession = Depends(get_db)):
+    """
+    Get detailed information about a user, including habits, tasks, and inventory.
+    """
     return await user_crud.get_user_with_relations(db, user_id)

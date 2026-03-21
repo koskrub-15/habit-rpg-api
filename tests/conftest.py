@@ -5,6 +5,7 @@ from sqlalchemy.ext.asyncio import AsyncSession, create_async_engine
 from sqlalchemy.orm import sessionmaker, declarative_base
 
 from apps.db.base import Base as DBBase
+import apps.models  # Import models to register them with metadata
 from apps.main import app
 from apps.core.config import settings
 

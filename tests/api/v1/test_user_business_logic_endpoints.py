@@ -23,7 +23,6 @@ async def test_user(db_session: AsyncSession) -> User:
         name="Test User",
         email="testuser@example.com",
         password="password123",
-        description="A test user",
     )
     user = User(**user_data.model_dump(mode="json"))
     db_session.add(user)
@@ -282,7 +281,6 @@ async def test_complete_task_wrong_user(
         name="Other User",
         email="other@example.com",
         password="pass",
-        description="",
     )
     db_session.add(other_user)
     await db_session.commit()
@@ -893,7 +891,7 @@ async def test_unequip_item_moves_to_inventory(
     from sqlalchemy import select
     from sqlalchemy.ext.asyncio import AsyncSession
 
-    from apps.models.item import InventoryItem as InvModel
+    from apps.models.user import InventoryItem as InvModel
 
     stmt = select(InvModel).where(
         InvModel.user_id == user.id, InvModel.item_id == test_armor_item.id

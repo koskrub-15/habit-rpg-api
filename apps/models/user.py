@@ -37,13 +37,21 @@ class User(SimpleBase):
     notification_preferences = relationship(
         "UserNotificationPreference", back_populates="user"
     )
-    equipped_items = relationship(
+    _equipped_items = relationship(
         "EquippedItem", back_populates="user", cascade="all, delete-orphan"
     )
 
-    inventory_items = relationship(
+    _inventory_items = relationship(
         "InventoryItem", back_populates="user", cascade="all, delete-orphan"
     )
+
+    @property
+    def equipped_items(self):
+        return [ei.item for ei in self._equipped_items if ei.item]
+
+    @property
+    def inventory_items(self):
+        return [ii.item for ii in self._inventory_items if ii.item]
 
     def __repr__(self):
         return f"<User(name={self.name}, email={self.email})>"
@@ -52,12 +60,11 @@ class User(SimpleBase):
 class EquippedItem(SimpleBase):
     __tablename__ = "equipped_items"
 
-    id = Column(Integer, primary_key=True)
     user_id = Column(Integer, ForeignKey("users.id"), nullable=False)
     item_id = Column(Integer, ForeignKey("items.id"), nullable=False)
     slot = Column(Enum(SlotType), nullable=False)
 
-    user = relationship("User", back_populates="equipped_items")
+    user = relationship("User", back_populates="_equipped_items")
     item = relationship("Item")
 
     def __repr__(self):
@@ -67,12 +74,11 @@ class EquippedItem(SimpleBase):
 class InventoryItem(SimpleBase):
     __tablename__ = "inventory_items"
 
-    id = Column(Integer, primary_key=True)
     user_id = Column(Integer, ForeignKey("users.id"), nullable=False)
     item_id = Column(Integer, ForeignKey("items.id"), nullable=False)
     quantity = Column(Integer, default=1)
 
-    user = relationship("User", back_populates="inventory_items")
+    user = relationship("User", back_populates="_inventory_items")
     item = relationship("Item")
 
     def __repr__(self):
