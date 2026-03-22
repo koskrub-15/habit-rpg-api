@@ -1,4 +1,4 @@
-from typing import List, Optional, Union
+from typing import Optional
 
 from fastapi import HTTPException, status
 from sqlalchemy import select
@@ -8,7 +8,7 @@ from sqlalchemy.orm import selectinload
 from apps.CRUD.base import BaseCRUD
 from apps.models.habit import Habit, HabitStatus, HabitType
 from apps.models.item import Item, ItemType
-from apps.models.task import Size, SubTask, Task, TaskStatus, TaskType
+from apps.models.task import Size, SubTask, Task, TaskStatus
 from apps.models.user import EquippedItem, InventoryItem, SlotType, User
 from apps.schemas.user import CompleteActivityResponse, UserCreate, UserUpdate
 
@@ -16,6 +16,11 @@ from apps.schemas.user import CompleteActivityResponse, UserCreate, UserUpdate
 class CRUDUser(BaseCRUD[User, UserCreate, UserUpdate]):
     def __init__(self):
         super().__init__(model=User)
+
+    async def get_by_email(self, db: AsyncSession, email: str) -> Optional[User]:
+        """Get user by email."""
+        result = await db.execute(select(User).where(User.email == email))
+        return result.scalar_one_or_none()
 
     SIZE_MULTIPLIERS = {
         Size.SMALL: 1.0,
@@ -148,6 +153,10 @@ class CRUDUser(BaseCRUD[User, UserCreate, UserUpdate]):
         Awards experience and gold, persists changes to the DB in a single commit.
         """
         user = await self.get(db, user_id, raise_not_found=True)
+        if not user:
+            raise HTTPException(
+                status_code=status.HTTP_404_NOT_FOUND, detail="User not found"
+            )
 
         if activity_type == "task":
             result = await db.execute(
@@ -181,7 +190,9 @@ class CRUDUser(BaseCRUD[User, UserCreate, UserUpdate]):
 
         return CompleteActivityResponse(**reward)
 
-    async def get_user_with_relations(self, db: AsyncSession, user_id: int, relationships: Optional[list[str]] = None):
+    async def get_user_with_relations(
+        self, db: AsyncSession, user_id: int, relationships: Optional[list[str]] = None
+    ):
         """Get user with all relations for detailed responses."""
         # Note: 'relationships' argument is added for compatibility with RouterFactory,
         # but we use a fixed set of comprehensive loads here.
@@ -194,8 +205,8 @@ class CRUDUser(BaseCRUD[User, UserCreate, UserUpdate]):
                 selectinload(User.achievements),
                 selectinload(User.notifications),
                 selectinload(User.notification_preferences),
-                selectinload(User._equipped_items).selectinload(EquippedItem.item),
-                selectinload(User._inventory_items).selectinload(InventoryItem.item),
+                selectinload(User.equipped_items).selectinload(EquippedItem.item),
+                selectinload(User.inventory_items).selectinload(InventoryItem.item),
             )
         )
         user = result.scalar_one_or_none()
@@ -211,14 +222,19 @@ class CRUDUser(BaseCRUD[User, UserCreate, UserUpdate]):
         user = await self.get(
             db, user_id, raise_not_found=True, relationships=["tasks", "habits"]
         )
+        if not user:
+            return
+
         for task in user.tasks:
             if str(getattr(task.task_type, "value", task.task_type)) == "DAILY":
                 task.status = TaskStatus.TODO
-                result = await db.execute(select(SubTask).where(SubTask.task_id == task.id))
+                result = await db.execute(
+                    select(SubTask).where(SubTask.task_id == task.id)
+                )
                 sub_tasks = result.scalars().all()
                 for sub_task in sub_tasks:
                     sub_task.status = TaskStatus.TODO
-        
+
         for habit in user.habits:
             habit.status = HabitStatus.TODO
             habit.overfullfillment = 0
@@ -258,7 +274,7 @@ class CRUDUser(BaseCRUD[User, UserCreate, UserUpdate]):
         else:
             inventory_item = InventoryItem(
                 user_id=user_id, item_id=item_id, quantity=quantity
-            )
+            )  # type: ignore
             db.add(inventory_item)
 
         await db.commit()
@@ -270,7 +286,7 @@ class CRUDUser(BaseCRUD[User, UserCreate, UserUpdate]):
     ):
         """Remove an item from the user's inventory."""
         await self.get(db, user_id, raise_not_found=True)
-        
+
         result = await db.execute(
             select(InventoryItem).where(
                 InventoryItem.user_id == user_id, InventoryItem.item_id == item_id
@@ -298,8 +314,12 @@ class CRUDUser(BaseCRUD[User, UserCreate, UserUpdate]):
             db,
             user_id,
             raise_not_found=True,
-            relationships=["_equipped_items"],
+            relationships=["equipped_items"],
         )
+        if not user:
+            raise HTTPException(
+                status_code=status.HTTP_404_NOT_FOUND, detail="User not found"
+            )
 
         result = await db.execute(select(Item).where(Item.id == item_id))
         item_to_equip = result.scalar_one_or_none()
@@ -327,7 +347,7 @@ class CRUDUser(BaseCRUD[User, UserCreate, UserUpdate]):
             )
 
         existing_equipped = next(
-            (eq for eq in user._equipped_items if eq.slot == slot), None
+            (eq for eq in user.equipped_items if eq.slot == slot), None
         )
         if existing_equipped:
             await self.unequip_item(db, user_id, slot)
@@ -336,15 +356,17 @@ class CRUDUser(BaseCRUD[User, UserCreate, UserUpdate]):
                 db,
                 user_id,
                 raise_not_found=True,
-                relationships=["_equipped_items"],
+                relationships=["equipped_items"],
             )
+            if not user:
+                raise HTTPException(status_code=404, detail="User not found")
 
         if inventory_item.quantity > 1:
             inventory_item.quantity -= 1
         else:
             await db.delete(inventory_item)
 
-        new_equipped_item = EquippedItem(user_id=user_id, item_id=item_id, slot=slot)
+        new_equipped_item = EquippedItem(user_id=user_id, item_id=item_id, slot=slot)  # type: ignore
         db.add(new_equipped_item)
 
         await db.commit()
@@ -357,10 +379,15 @@ class CRUDUser(BaseCRUD[User, UserCreate, UserUpdate]):
             db,
             user_id,
             raise_not_found=True,
-            relationships=["_equipped_items"],
+            relationships=["equipped_items"],
         )
+        if not user:
+            raise HTTPException(
+                status_code=status.HTTP_404_NOT_FOUND, detail="User not found"
+            )
+
         equipped_item_to_remove = next(
-            (eq for eq in user._equipped_items if eq.slot == slot), None
+            (eq for eq in user.equipped_items if eq.slot == slot), None
         )
 
         if not equipped_item_to_remove:
