@@ -1,5 +1,5 @@
 import pytest
-from datetime import datetime, timedelta
+from datetime import datetime, timedelta, timezone
 from httpx import AsyncClient
 from sqlalchemy.ext.asyncio import AsyncSession
 from apps.models.user import User, InventoryItem
@@ -135,8 +135,8 @@ async def test_buy_item_outside_availability_window_returns_400(client: AsyncCli
     await db_session.flush()
     
     # Item available only in the future
-    start_date = datetime.utcnow() + timedelta(days=1)
-    end_date = datetime.utcnow() + timedelta(days=2)
+    start_date = datetime.now(timezone.utc) + timedelta(days=1)
+    end_date = datetime.now(timezone.utc) + timedelta(days=2)
     
     shop_item = ShopItem(
         name="Future Shop Item", 

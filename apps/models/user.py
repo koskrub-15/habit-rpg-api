@@ -18,6 +18,12 @@ class SlotType(enum.Enum):
     PET = "PET"
 
 
+class FriendshipStatus(enum.Enum):
+    PENDING = "PENDING"
+    ACCEPTED = "ACCEPTED"
+    DECLINED = "DECLINED"
+
+
 class User(SimpleBase):
     __tablename__ = "users"
     email = Column(String(255), unique=True, nullable=False)
@@ -45,6 +51,14 @@ class User(SimpleBase):
         "InventoryItem", back_populates="user", cascade="all, delete-orphan"
     )
 
+    # Relationships for friendships
+    sent_friend_requests = relationship(
+        "Friendship", foreign_keys="Friendship.user_id", back_populates="user"
+    )
+    received_friend_requests = relationship(
+        "Friendship", foreign_keys="Friendship.friend_id", back_populates="friend"
+    )
+
     @property
     def equipped_items(self):
         return [ei.item for ei in self._equipped_items if ei.item]
@@ -55,6 +69,20 @@ class User(SimpleBase):
 
     def __repr__(self):
         return f"<User(name={self.name}, email={self.email})>"
+
+
+class Friendship(SimpleBase):
+    __tablename__ = "friendships"
+
+    user_id = Column(Integer, ForeignKey("users.id"), nullable=False)
+    friend_id = Column(Integer, ForeignKey("users.id"), nullable=False)
+    status = Column(Enum(FriendshipStatus), default=FriendshipStatus.PENDING)
+
+    user = relationship("User", foreign_keys=[user_id], back_populates="sent_friend_requests")
+    friend = relationship("User", foreign_keys=[friend_id], back_populates="received_friend_requests")
+
+    def __repr__(self):
+        return f"<Friendship(from={self.user_id}, to={self.friend_id}, status={self.status})>"
 
 
 class EquippedItem(SimpleBase):

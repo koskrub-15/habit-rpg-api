@@ -162,3 +162,14 @@ async def get_user_details(user_id: int, db: AsyncSession = Depends(get_db)):
     Get detailed information about a user, including habits, tasks, and inventory.
     """
     return await user_crud.get_user_with_relations(db, user_id)
+
+
+@router.post("/{user_id}/achievements/{achievement_id}")
+async def grant_achievement(
+    user_id: int, achievement_id: int, db: AsyncSession = Depends(get_db)
+):
+    """Grant an achievement to a user manually."""
+    return await user_crud.grant_achievement(db, user_id, achievement_id)
+
+
+

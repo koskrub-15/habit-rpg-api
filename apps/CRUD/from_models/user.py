@@ -1,15 +1,25 @@
-from typing import Optional
+from datetime import datetime, timezone
+from typing import List, Optional
 
 from fastapi import HTTPException, status
-from sqlalchemy import select
+from sqlalchemy import or_, select
 from sqlalchemy.ext.asyncio import AsyncSession
 from sqlalchemy.orm import selectinload
 
 from apps.CRUD.base import BaseCRUD
+from apps.models.achievement import Achievement
 from apps.models.habit import Habit, HabitStatus, HabitType
 from apps.models.item import Item, ItemType
+from apps.models.store_rotation import ShopItem
 from apps.models.task import Size, SubTask, Task, TaskStatus
-from apps.models.user import EquippedItem, InventoryItem, SlotType, User
+from apps.models.user import (
+    EquippedItem,
+    Friendship,
+    FriendshipStatus,
+    InventoryItem,
+    SlotType,
+    User,
+)
 from apps.schemas.user import CompleteActivityResponse, UserCreate, UserUpdate
 
 
@@ -21,6 +31,222 @@ class CRUDUser(BaseCRUD[User, UserCreate, UserUpdate]):
         """Get user by email."""
         result = await db.execute(select(User).where(User.email == email))
         return result.scalar_one_or_none()
+
+    async def buy_item(self, db: AsyncSession, user_id: int, shop_item_id: int):
+        """Buy item from the shop."""
+        result = await db.execute(
+            select(ShopItem)
+            .where(ShopItem.id == shop_item_id)
+            .options(selectinload(ShopItem.item))
+        )
+        shop_item = result.scalar_one_or_none()
+
+        if not shop_item:
+            raise HTTPException(
+                status_code=status.HTTP_404_NOT_FOUND, detail="Shop item not found"
+            )
+
+        user = await self.get(db, user_id, raise_not_found=True)
+        if not user:
+            raise HTTPException(status_code=404, detail="User not found")
+
+        now = datetime.now(timezone.utc)
+        if shop_item.available_from and now < shop_item.available_from:
+            raise HTTPException(
+                status_code=status.HTTP_400_BAD_REQUEST,
+                detail=f"Item not currently available. It will be available only from {shop_item.available_from}",
+            )
+
+        if shop_item.available_until and now > shop_item.available_until:
+            raise HTTPException(
+                status_code=status.HTTP_400_BAD_REQUEST,
+                detail="Item not currently available. Offer has expired",
+            )
+
+        if shop_item.stock == 0:
+            raise HTTPException(
+                status_code=status.HTTP_400_BAD_REQUEST,
+                detail="Out of stock",
+            )
+
+        if user.gold < shop_item.price:
+            raise HTTPException(
+                status_code=status.HTTP_400_BAD_REQUEST,
+                detail="Not enough gold on the balance",
+            )
+
+        user.gold -= shop_item.price
+        shop_item.stock -= 1
+
+        await self.add_to_inventory(db, user_id, shop_item.item_id)
+
+        await db.commit()
+        return {"message": "Purchase successful", "new_gold": user.gold}
+
+    # Friends methods
+    async def send_friend_request(
+        self, db: AsyncSession, user_id: int, friend_id: int
+    ) -> Friendship:
+        """Send a friend request."""
+        if user_id == friend_id:
+            raise HTTPException(status_code=400, detail="Cannot add yourself as friend")
+
+        # Check if recipient exists
+        friend = await self.get(db, friend_id)
+        if not friend:
+            raise HTTPException(status_code=404, detail="User not found")
+
+        # Check for existing friendship or request
+        result = await db.execute(
+            select(Friendship).where(
+                or_(
+                    (Friendship.user_id == user_id) & (Friendship.friend_id == friend_id),
+                    (Friendship.user_id == friend_id) & (Friendship.friend_id == user_id),
+                )
+            )
+        )
+        existing = result.scalar_one_or_none()
+        if existing:
+            raise HTTPException(status_code=409, detail="Friendship already exists or pending")
+
+        friendship = Friendship(user_id=user_id, friend_id=friend_id, status=FriendshipStatus.PENDING) # type: ignore
+        db.add(friendship)
+        await db.commit()
+        await db.refresh(friendship)
+        return friendship
+
+    async def accept_friend_request(
+        self, db: AsyncSession, user_id: int, request_id: int
+    ) -> Friendship:
+        """Accept a friend request."""
+        result = await db.execute(
+            select(Friendship).where(
+                Friendship.id == request_id,
+                Friendship.friend_id == user_id,
+                Friendship.status == FriendshipStatus.PENDING
+            )
+        )
+        friendship = result.scalar_one_or_none()
+        if not friendship:
+            raise HTTPException(status_code=404, detail="Friend request not found")
+
+        friendship.status = FriendshipStatus.ACCEPTED
+        await db.commit()
+        await db.refresh(friendship)
+        return friendship
+
+    async def decline_friend_request(
+        self, db: AsyncSession, user_id: int, request_id: int
+    ) -> Friendship:
+        """Decline a friend request."""
+        result = await db.execute(
+            select(Friendship).where(
+                Friendship.id == request_id,
+                Friendship.friend_id == user_id,
+                Friendship.status == FriendshipStatus.PENDING
+            )
+        )
+        friendship = result.scalar_one_or_none()
+        if not friendship:
+            raise HTTPException(status_code=404, detail="Friend request not found")
+
+        friendship.status = FriendshipStatus.DECLINED
+        await db.commit()
+        await db.refresh(friendship)
+        return friendship
+
+    async def get_friends(self, db: AsyncSession, user_id: int) -> List[User]:
+        """Get list of friends (ACCEPTED status)."""
+        result = await db.execute(
+            select(Friendship).where(
+                ((Friendship.user_id == user_id) | (Friendship.friend_id == user_id)) &
+                (Friendship.status == FriendshipStatus.ACCEPTED)
+            )
+        )
+        friendships = result.scalars().all()
+        
+        friend_ids = []
+        for f in friendships:
+            if f.user_id == user_id:
+                friend_ids.append(f.friend_id)
+            else:
+                friend_ids.append(f.user_id)
+        
+        if not friend_ids:
+            return []
+            
+        result = await db.execute(select(User).where(User.id.in_(friend_ids)))
+        return list(result.scalars().all())
+
+    async def remove_friend(self, db: AsyncSession, user_id: int, friend_id: int) -> None:
+        """Remove a friend."""
+        result = await db.execute(
+            select(Friendship).where(
+                or_(
+                    (Friendship.user_id == user_id) & (Friendship.friend_id == friend_id),
+                    (Friendship.user_id == friend_id) & (Friendship.friend_id == user_id),
+                )
+            )
+        )
+        friendship = result.scalar_one_or_none()
+        if not friendship:
+            raise HTTPException(status_code=404, detail="Friendship not found")
+
+        await db.delete(friendship)
+        await db.commit()
+
+    # Achievements methods
+    async def grant_achievement(self, db: AsyncSession, user_id: int, achievement_id: int) -> Achievement:
+        """Grant an achievement to a user manually."""
+        user = await self.get(db, user_id, raise_not_found=True, relationships=["achievements"])
+        if not user:
+            raise HTTPException(status_code=404, detail="User not found")
+            
+        result = await db.execute(select(Achievement).where(Achievement.id == achievement_id))
+        achievement = result.scalar_one_or_none()
+        if not achievement:
+            raise HTTPException(status_code=404, detail="Achievement not found")
+            
+        if achievement in user.achievements:
+            raise HTTPException(status_code=409, detail="User already has this achievement")
+            
+        user.achievements.append(achievement)
+        await db.commit()
+        await db.refresh(user)
+        return achievement
+
+    async def check_and_award_achievements(self, db: AsyncSession, user_id: int) -> List[Achievement]:
+        """Check all achievements and award those where conditions are met."""
+        user = await self.get(db, user_id, relationships=["achievements", "tasks", "habits"])
+        if not user:
+            return []
+            
+        result = await db.execute(select(Achievement))
+        all_achievements = result.scalars().all()
+        
+        awarded = []
+        for ach in all_achievements:
+            if ach in user.achievements:
+                continue
+            
+            condition_met = False
+            if ach.condition_type == "tasks_completed":
+                completed_count = sum(1 for t in user.tasks if t.status == TaskStatus.COMPLETED)
+                if completed_count >= ach.condition_value:
+                    condition_met = True
+            
+            elif ach.condition_type == "habit_streak":
+                max_streak = max((h.streak for h in user.habits), default=0)
+                if max_streak >= ach.condition_value:
+                    condition_met = True
+            
+            if condition_met:
+                user.achievements.append(ach)
+                awarded.append(ach)
+        
+        if awarded:
+            await db.commit()
+        return awarded
 
     SIZE_MULTIPLIERS = {
         Size.SMALL: 1.0,
@@ -187,6 +413,9 @@ class CRUDUser(BaseCRUD[User, UserCreate, UserUpdate]):
             )
 
         await db.commit()
+        
+        # Trigger achievement check after activity completion
+        await self.check_and_award_achievements(db, user_id)
 
         return CompleteActivityResponse(**reward)
 
@@ -205,8 +434,8 @@ class CRUDUser(BaseCRUD[User, UserCreate, UserUpdate]):
                 selectinload(User.achievements),
                 selectinload(User.notifications),
                 selectinload(User.notification_preferences),
-                selectinload(User.equipped_items).selectinload(EquippedItem.item),
-                selectinload(User.inventory_items).selectinload(InventoryItem.item),
+                selectinload(User._equipped_items).selectinload(EquippedItem.item),
+                selectinload(User._inventory_items).selectinload(InventoryItem.item),
             )
         )
         user = result.scalar_one_or_none()
@@ -314,7 +543,7 @@ class CRUDUser(BaseCRUD[User, UserCreate, UserUpdate]):
             db,
             user_id,
             raise_not_found=True,
-            relationships=["equipped_items"],
+            relationships=["_equipped_items"],
         )
         if not user:
             raise HTTPException(
@@ -347,7 +576,7 @@ class CRUDUser(BaseCRUD[User, UserCreate, UserUpdate]):
             )
 
         existing_equipped = next(
-            (eq for eq in user.equipped_items if eq.slot == slot), None
+            (eq for eq in user._equipped_items if eq.slot == slot), None
         )
         if existing_equipped:
             await self.unequip_item(db, user_id, slot)
@@ -356,7 +585,7 @@ class CRUDUser(BaseCRUD[User, UserCreate, UserUpdate]):
                 db,
                 user_id,
                 raise_not_found=True,
-                relationships=["equipped_items"],
+                relationships=["_equipped_items"],
             )
             if not user:
                 raise HTTPException(status_code=404, detail="User not found")
@@ -366,7 +595,9 @@ class CRUDUser(BaseCRUD[User, UserCreate, UserUpdate]):
         else:
             await db.delete(inventory_item)
 
-        new_equipped_item = EquippedItem(user_id=user_id, item_id=item_id, slot=slot)  # type: ignore
+        new_equipped_item = EquippedItem(
+            user_id=user_id, item_id=item_id, slot=slot
+        )  # type: ignore
         db.add(new_equipped_item)
 
         await db.commit()
@@ -379,7 +610,7 @@ class CRUDUser(BaseCRUD[User, UserCreate, UserUpdate]):
             db,
             user_id,
             raise_not_found=True,
-            relationships=["equipped_items"],
+            relationships=["_equipped_items"],
         )
         if not user:
             raise HTTPException(
@@ -387,7 +618,7 @@ class CRUDUser(BaseCRUD[User, UserCreate, UserUpdate]):
             )
 
         equipped_item_to_remove = next(
-            (eq for eq in user.equipped_items if eq.slot == slot), None
+            (eq for eq in user._equipped_items if eq.slot == slot), None
         )
 
         if not equipped_item_to_remove:
