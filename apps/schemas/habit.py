@@ -1,12 +1,15 @@
 from __future__ import annotations
 
-from typing import List, Optional
+from typing import TYPE_CHECKING, Optional
 
 from pydantic import BaseModel
 
 from apps.db.base import BaseSchemaCreate, BaseSchemaResponse
 from apps.models.habit import HabitStatus, HabitType
 from apps.models.task import Size
+
+if TYPE_CHECKING:
+    from apps.schemas.user import UserResponseShort
 
 
 class HabitCreate(BaseSchemaCreate):

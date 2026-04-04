@@ -1,12 +1,14 @@
 from __future__ import annotations
 
-from datetime import datetime
-from typing import List, Optional
+from typing import TYPE_CHECKING, Optional
 
-from pydantic import BaseModel, ConfigDict
+from pydantic import BaseModel
 
 from apps.db.base import BaseSchemaCreate, BaseSchemaResponse, SimpleBaseSchemaCreate
 from apps.models.notification import NotificationType
+
+if TYPE_CHECKING:
+    from apps.schemas.user import UserResponseShort
 
 
 class NotificationCreate(BaseSchemaCreate):

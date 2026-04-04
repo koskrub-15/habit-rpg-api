@@ -90,7 +90,7 @@ async def test_get_achievements(
     )
     await client.post(
         "/api/v1/achievements/",
-        json=create_another_test_achievement_payload.model_dump(mode='json'),
+        json=create_another_test_achievement_payload.model_dump(mode="json"),
     )
 
     response = await client.get("/api/v1/achievements/")
@@ -119,10 +119,12 @@ async def test_get_achievements_pagination(
             condition_value=i,
         )
         await client.post(
-            "/api/v1/achievements/", json=achievement_payload.model_dump(mode='json')
+            "/api/v1/achievements/", json=achievement_payload.model_dump(mode="json")
         )
 
-    response = await client.get("/api/v1/achievements/?skip=1&limit=2&order_by=created_at")
+    response = await client.get(
+        "/api/v1/achievements/?skip=1&limit=2&order_by=created_at"
+    )
     assert response.status_code == 200
     response_data = response.json()
     assert len(response_data) == 2
@@ -138,11 +140,12 @@ async def test_get_achievements_filter_by_name(
 ):
     """Tests name filtering for the GET /api/v1/achievements/ endpoint."""
     await client.post(
-        "/api/v1/achievements/", json=create_test_achievement_payload.model_dump(mode='json')
+        "/api/v1/achievements/",
+        json=create_test_achievement_payload.model_dump(mode="json"),
     )
     await client.post(
         "/api/v1/achievements/",
-        json=create_another_test_achievement_payload.model_dump(mode='json'),
+        json=create_another_test_achievement_payload.model_dump(mode="json"),
     )
 
     response = await client.get("/api/v1/achievements/?name=Login")
@@ -160,7 +163,8 @@ async def test_get_achievement_by_id(
 ):
     """Tests the GET /api/v1/achievements/{id} endpoint for retrieving an achievement by ID."""
     create_response = await client.post(
-        "/api/v1/achievements/", json=create_test_achievement_payload.model_dump(mode='json')
+        "/api/v1/achievements/",
+        json=create_test_achievement_payload.model_dump(mode="json"),
     )
     achievement_id = create_response.json()["id"]
 
@@ -190,13 +194,16 @@ async def test_update_achievement(
 ):
     """Tests the PATCH /api/v1/achievements/{id} endpoint for updating an existing achievement."""
     create_response = await client.post(
-        "/api/v1/achievements/", json=create_test_achievement_payload.model_dump(mode='json')
+        "/api/v1/achievements/",
+        json=create_test_achievement_payload.model_dump(mode="json"),
     )
     achievement_id = create_response.json()["id"]
 
     response = await client.patch(
         f"/api/v1/achievements/{achievement_id}",
-        json=create_update_achievement_payload.model_dump(mode='json', exclude_unset=True),
+        json=create_update_achievement_payload.model_dump(
+            mode="json", exclude_unset=True
+        ),
     )
     assert response.status_code == 200
     response_data = response.json()
@@ -217,7 +224,9 @@ async def test_update_achievement(
 
     response_not_found = await client.patch(
         "/api/v1/achievements/99999",
-        json=create_update_achievement_payload.model_dump(mode='json', exclude_unset=True),
+        json=create_update_achievement_payload.model_dump(
+            mode="json", exclude_unset=True
+        ),
     )
     assert response_not_found.status_code == 404
     assert "detail" in response_not_found.json()
@@ -231,7 +240,8 @@ async def test_delete_achievement(
 ):
     """Tests the DELETE /api/v1/achievements/{id} endpoint for deleting an achievement."""
     create_response = await client.post(
-        "/api/v1/achievements/", json=create_test_achievement_payload.model_dump(mode='json')
+        "/api/v1/achievements/",
+        json=create_test_achievement_payload.model_dump(mode="json"),
     )
     achievement_id = create_response.json()["id"]
 
@@ -258,7 +268,8 @@ async def test_get_achievement_count(
     assert response_initial.json()["count"] == 0
 
     await client.post(
-        "/api/v1/achievements/", json=create_test_achievement_payload.model_dump(mode='json')
+        "/api/v1/achievements/",
+        json=create_test_achievement_payload.model_dump(mode="json"),
     )
 
     response_after_create = await client.get("/api/v1/achievements/count")
@@ -274,7 +285,8 @@ async def test_check_achievement_exists(
 ):
     """Tests the GET /api/v1/achievements/{id}/exists endpoint for checking achievement existence."""
     create_response = await client.post(
-        "/api/v1/achievements/", json=create_test_achievement_payload.model_dump(mode='json')
+        "/api/v1/achievements/",
+        json=create_test_achievement_payload.model_dump(mode="json"),
     )
     achievement_id = create_response.json()["id"]
 
@@ -296,8 +308,8 @@ async def test_bulk_create_achievements(
 ):
     """Tests the POST /api/v1/achievements/bulk endpoint for bulk creating achievements."""
     achievements_payload = [
-        create_test_achievement_payload.model_dump(mode='json'),
-        create_another_test_achievement_payload.model_dump(mode='json'),
+        create_test_achievement_payload.model_dump(mode="json"),
+        create_another_test_achievement_payload.model_dump(mode="json"),
     ]
 
     response = await client.post("/api/v1/achievements/bulk", json=achievements_payload)
@@ -317,7 +329,7 @@ async def test_bulk_create_achievements(
             description=f"Description {i}",
             condition_type="generic",
             condition_value=i,
-        ).model_dump(mode='json')
+        ).model_dump(mode="json")
         for i in range(101)
     ]
     response_limit_exceeded = await client.post(

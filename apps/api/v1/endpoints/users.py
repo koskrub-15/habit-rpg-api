@@ -4,7 +4,6 @@ from sqlalchemy.ext.asyncio import AsyncSession
 from apps.api.router_generator import RouterFactory
 from apps.CRUD.from_models.user import user_crud
 from apps.db.session import get_db
-from apps.models.user import EquippedItem
 from apps.schemas.user import (
     CompleteActivityRequest,
     CompleteActivityResponse,
@@ -63,13 +62,13 @@ async def complete_activity(
 
 
 @router.post(
-    "/{user_id}/reset-daily-tasks",
+    "/{user_id}/reset-daily",
     status_code=status.HTTP_200_OK,
     summary="Reset all daily tasks for a user",
 )
-async def reset_daily_tasks(user_id: int, db: AsyncSession = Depends(get_db)):
+async def reset_daily(user_id: int, db: AsyncSession = Depends(get_db)):
     """
-    Reset the status of all daily tasks for a specific user to 'TODO'.
+    Reset the status of all daily tasks and habits for a specific user to 'TODO'.
     """
     await user_crud.reset_daily_tasks(db, user_id=user_id)
     return
@@ -170,6 +169,3 @@ async def grant_achievement(
 ):
     """Grant an achievement to a user manually."""
     return await user_crud.grant_achievement(db, user_id, achievement_id)
-
-
-

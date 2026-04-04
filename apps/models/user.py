@@ -1,13 +1,11 @@
 import enum
 from datetime import datetime, timezone
-from typing import Optional
 
 from sqlalchemy import Column, DateTime, Enum, ForeignKey, Integer, String
 from sqlalchemy.orm import relationship
 
 from apps.db.base import SimpleBase
 from apps.models.achievement import user_achievement_table
-from apps.models.item import Item, ItemType
 
 
 class SlotType(enum.Enum):
@@ -78,8 +76,12 @@ class Friendship(SimpleBase):
     friend_id = Column(Integer, ForeignKey("users.id"), nullable=False)
     status = Column(Enum(FriendshipStatus), default=FriendshipStatus.PENDING)
 
-    user = relationship("User", foreign_keys=[user_id], back_populates="sent_friend_requests")
-    friend = relationship("User", foreign_keys=[friend_id], back_populates="received_friend_requests")
+    user = relationship(
+        "User", foreign_keys=[user_id], back_populates="sent_friend_requests"
+    )
+    friend = relationship(
+        "User", foreign_keys=[friend_id], back_populates="received_friend_requests"
+    )
 
     def __repr__(self):
         return f"<Friendship(from={self.user_id}, to={self.friend_id}, status={self.status})>"

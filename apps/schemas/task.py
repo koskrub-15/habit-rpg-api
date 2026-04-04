@@ -1,11 +1,14 @@
 from __future__ import annotations
 
-from typing import List, Optional
+from typing import TYPE_CHECKING, List, Optional
 
 from pydantic import BaseModel
 
 from apps.db.base import BaseSchemaCreate, BaseSchemaResponse, SimpleBaseSchemaCreate
-from apps.models.task import Size, SubTask, TaskStatus, TaskType
+from apps.models.task import Size, TaskStatus, TaskType
+
+if TYPE_CHECKING:
+    from apps.schemas.user import UserResponseShort
 
 
 class TaskCreate(BaseSchemaCreate):

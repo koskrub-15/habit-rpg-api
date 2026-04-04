@@ -9,9 +9,6 @@ from apps.schemas.user import UserCreate
 from apps.models.task import Size
 
 
-
-
-
 @pytest_asyncio.fixture
 async def create_test_user_for_habits(db_session: AsyncSession):
     """
@@ -19,9 +16,12 @@ async def create_test_user_for_habits(db_session: AsyncSession):
     Habits are linked to users, so a user is required for most habit operations.
     """
     user_data = UserCreate(
-        name="Habit User", email="habit@example.com", password="habitpassword", description="User for habits"
+        name="Habit User",
+        email="habit@example.com",
+        password="habitpassword",
+        description="User for habits",
     )
-    user = User(**user_data.model_dump(mode='json'))
+    user = User(**user_data.model_dump(mode="json"))
     db_session.add(user)
     await db_session.commit()
     return user
@@ -65,9 +65,6 @@ async def create_update_habit_payload():
     return HabitUpdate(name="Evening Walk", status=HabitStatus.COMPLETED)
 
 
-
-
-
 @pytest.mark.asyncio
 async def test_create_habit(
     client: AsyncClient,
@@ -84,8 +81,9 @@ async def test_create_habit(
     - Habit is correctly created in the database.
     """
 
-
-    response = await client.post("/api/v1/habits/", json=create_test_habit_payload.model_dump(mode='json'))
+    response = await client.post(
+        "/api/v1/habits/", json=create_test_habit_payload.model_dump(mode="json")
+    )
 
     assert response.status_code == 201
     response_data = response.json()
@@ -118,8 +116,13 @@ async def test_get_habits(
     - The number of returned habits matches the expected count.
     - Habit data matches the HabitResponseShort schema.
     """
-    await client.post("/api/v1/habits/", json=create_test_habit_payload.model_dump(mode='json'))
-    await client.post("/api/v1/habits/", json=create_another_test_habit_payload.model_dump(mode='json'))
+    await client.post(
+        "/api/v1/habits/", json=create_test_habit_payload.model_dump(mode="json")
+    )
+    await client.post(
+        "/api/v1/habits/",
+        json=create_another_test_habit_payload.model_dump(mode="json"),
+    )
 
     response = await client.get("/api/v1/habits/")
 
@@ -154,7 +157,7 @@ async def test_get_habits_pagination(
             habit_type=HabitType.POSITIVE,
             habit_size=Size.SMALL,
         )
-        await client.post("/api/v1/habits/", json=habit_payload.model_dump(mode='json'))
+        await client.post("/api/v1/habits/", json=habit_payload.model_dump(mode="json"))
 
     response = await client.get("/api/v1/habits/?skip=1&limit=2&order_by=created_at")
     assert response.status_code == 200
@@ -177,8 +180,13 @@ async def test_get_habits_filter_by_name(
     Checks:
     - Correct functionality of the name parameter for partial matching.
     """
-    await client.post("/api/v1/habits/", json=create_test_habit_payload.model_dump(mode='json'))
-    await client.post("/api/v1/habits/", json=create_another_test_habit_payload.model_dump(mode='json'))
+    await client.post(
+        "/api/v1/habits/", json=create_test_habit_payload.model_dump(mode="json")
+    )
+    await client.post(
+        "/api/v1/habits/",
+        json=create_another_test_habit_payload.model_dump(mode="json"),
+    )
 
     response = await client.get("/api/v1/habits/?name=Morning")
     assert response.status_code == 200
@@ -203,7 +211,7 @@ async def test_get_habit_by_id(
     - HTTP 404 Not Found error is returned if the habit is not found.
     """
     create_response = await client.post(
-        "/api/v1/habits/", json=create_test_habit_payload.model_dump(mode='json')
+        "/api/v1/habits/", json=create_test_habit_payload.model_dump(mode="json")
     )
     habit_id = create_response.json()["id"]
 
@@ -239,12 +247,13 @@ async def test_update_habit(
     - HTTP 404 Not Found error is returned if the habit is not found.
     """
     create_response = await client.post(
-        "/api/v1/habits/", json=create_test_habit_payload.model_dump(mode='json')
+        "/api/v1/habits/", json=create_test_habit_payload.model_dump(mode="json")
     )
     habit_id = create_response.json()["id"]
 
     response = await client.patch(
-        f"/api/v1/habits/{habit_id}", json=create_update_habit_payload.model_dump(mode='json', exclude_unset=True)
+        f"/api/v1/habits/{habit_id}",
+        json=create_update_habit_payload.model_dump(mode="json", exclude_unset=True),
     )
     assert response.status_code == 200
     response_data = response.json()
@@ -258,7 +267,8 @@ async def test_update_habit(
     assert updated_habit.status == create_update_habit_payload.status
 
     response_not_found = await client.patch(
-        "/api/v1/habits/99999", json=create_update_habit_payload.model_dump(mode='json', exclude_unset=True)
+        "/api/v1/habits/99999",
+        json=create_update_habit_payload.model_dump(mode="json", exclude_unset=True),
     )
     assert response_not_found.status_code == 404
     assert "detail" in response_not_found.json()
@@ -280,7 +290,7 @@ async def test_delete_habit(
     - HTTP 404 Not Found error is returned if the habit is not found.
     """
     create_response = await client.post(
-        "/api/v1/habits/", json=create_test_habit_payload.model_dump(mode='json')
+        "/api/v1/habits/", json=create_test_habit_payload.model_dump(mode="json")
     )
     habit_id = create_response.json()["id"]
 
@@ -313,7 +323,9 @@ async def test_get_habit_count(
     assert response_initial.status_code == 200
     assert response_initial.json()["count"] == 0
 
-    await client.post("/api/v1/habits/", json=create_test_habit_payload.model_dump(mode='json'))
+    await client.post(
+        "/api/v1/habits/", json=create_test_habit_payload.model_dump(mode="json")
+    )
 
     response_after_create = await client.get("/api/v1/habits/count")
     assert response_after_create.status_code == 200
@@ -335,7 +347,7 @@ async def test_check_habit_exists(
     - Returns {'exists': False} for a non-existent habit.
     """
     create_response = await client.post(
-        "/api/v1/habits/", json=create_test_habit_payload.model_dump(mode='json')
+        "/api/v1/habits/", json=create_test_habit_payload.model_dump(mode="json")
     )
     habit_id = create_response.json()["id"]
 
@@ -365,11 +377,10 @@ async def test_bulk_create_habits(
     - Limits on the number of habits for bulk creation.
     """
 
-
     user = create_test_user_for_habits
     habits_payload = [
-        create_test_habit_payload.model_dump(mode='json'),
-        create_another_test_habit_payload.model_dump(mode='json'),
+        create_test_habit_payload.model_dump(mode="json"),
+        create_another_test_habit_payload.model_dump(mode="json"),
     ]
 
     for payload in habits_payload:
@@ -386,7 +397,6 @@ async def test_bulk_create_habits(
         assert created_habit is not None
         assert created_habit.name == habit_data["name"]
 
-
     large_habits_payload = [
         HabitCreate(
             name=f"Bulk Habit {i}",
@@ -394,11 +404,14 @@ async def test_bulk_create_habits(
             user_id=user.id,
             habit_type=HabitType.POSITIVE,
             habit_size=Size.SMALL,
-        ).model_dump(mode='json')
+        ).model_dump(mode="json")
         for i in range(101)
     ]
     response_limit_exceeded = await client.post(
         "/api/v1/habits/bulk", json=large_habits_payload
     )
     assert response_limit_exceeded.status_code == 400
-    assert "Cannot create more than 100 habits at once" in response_limit_exceeded.json()["detail"]
+    assert (
+        "Cannot create more than 100 habits at once"
+        in response_limit_exceeded.json()["detail"]
+    )

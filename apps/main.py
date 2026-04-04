@@ -1,5 +1,5 @@
-import asyncio
 import logging
+from typing import Any
 
 from fastapi import FastAPI
 from fastapi.encoders import jsonable_encoder
@@ -16,7 +16,7 @@ logging.basicConfig(
 
 
 class CustomJSONResponse(JSONResponse):
-    def render(self, content: any) -> bytes:
+    def render(self, content: Any) -> bytes:
         return super().render(jsonable_encoder(content))
 
 

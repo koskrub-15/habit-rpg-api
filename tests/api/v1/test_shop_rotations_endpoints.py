@@ -7,9 +7,6 @@ from apps.schemas.store_rotation import ShopRotationCreate, ShopRotationUpdate
 from datetime import datetime, timedelta, timezone
 
 
-
-
-
 @pytest_asyncio.fixture
 async def create_test_shop_rotation_payload():
     """
@@ -49,9 +46,6 @@ async def create_update_shop_rotation_payload():
     )
 
 
-
-
-
 @pytest.mark.asyncio
 async def test_create_shop_rotation(
     client: AsyncClient,
@@ -60,7 +54,8 @@ async def test_create_shop_rotation(
 ):
     """Tests the POST /api/v1/shop_rotations/ endpoint for creating a new shop rotation."""
     response = await client.post(
-        "/api/v1/shop_rotations/", json=create_test_shop_rotation_payload.model_dump(mode='json')
+        "/api/v1/shop_rotations/",
+        json=create_test_shop_rotation_payload.model_dump(mode="json"),
     )
 
     assert response.status_code == 201
@@ -85,10 +80,12 @@ async def test_get_shop_rotations(
 ):
     """Tests the GET /api/v1/shop_rotations/ endpoint for retrieving a list of shop rotations."""
     await client.post(
-        "/api/v1/shop_rotations/", json=create_test_shop_rotation_payload.model_dump(mode='json')
+        "/api/v1/shop_rotations/",
+        json=create_test_shop_rotation_payload.model_dump(mode="json"),
     )
     await client.post(
-        "/api/v1/shop_rotations/", json=create_another_test_shop_rotation_payload.model_dump(mode='json')
+        "/api/v1/shop_rotations/",
+        json=create_another_test_shop_rotation_payload.model_dump(mode="json"),
     )
 
     response = await client.get("/api/v1/shop_rotations/")
@@ -117,9 +114,13 @@ async def test_get_shop_rotations_pagination(
             end_date=datetime.now(timezone.utc) + timedelta(days=i + 1),
             theme=ItemTheme.COMMON,
         )
-        await client.post("/api/v1/shop_rotations/", json=rotation_payload.model_dump(mode='json'))
+        await client.post(
+            "/api/v1/shop_rotations/", json=rotation_payload.model_dump(mode="json")
+        )
 
-    response = await client.get("/api/v1/shop_rotations/?skip=1&limit=2&order_by=created_at")
+    response = await client.get(
+        "/api/v1/shop_rotations/?skip=1&limit=2&order_by=created_at"
+    )
     assert response.status_code == 200
     response_data = response.json()
     assert len(response_data) == 2
@@ -135,10 +136,12 @@ async def test_get_shop_rotations_filter_by_name(
 ):
     """Tests name filtering for the GET /api/v1/shop_rotations/ endpoint."""
     await client.post(
-        "/api/v1/shop_rotations/", json=create_test_shop_rotation_payload.model_dump(mode='json')
+        "/api/v1/shop_rotations/",
+        json=create_test_shop_rotation_payload.model_dump(mode="json"),
     )
     await client.post(
-        "/api/v1/shop_rotations/", json=create_another_test_shop_rotation_payload.model_dump(mode='json')
+        "/api/v1/shop_rotations/",
+        json=create_another_test_shop_rotation_payload.model_dump(mode="json"),
     )
 
     response = await client.get("/api/v1/shop_rotations/?name=Winter")
@@ -156,7 +159,8 @@ async def test_get_shop_rotation_by_id(
 ):
     """Tests the GET /api/v1/shop_rotations/{id} endpoint for retrieving a shop rotation by ID."""
     create_response = await client.post(
-        "/api/v1/shop_rotations/", json=create_test_shop_rotation_payload.model_dump(mode='json')
+        "/api/v1/shop_rotations/",
+        json=create_test_shop_rotation_payload.model_dump(mode="json"),
     )
     rotation_id = create_response.json()["id"]
 
@@ -171,7 +175,9 @@ async def test_get_shop_rotation_by_id(
     response_not_found = await client.get("/api/v1/shop_rotations/99999")
     assert response_not_found.status_code == 404
     assert "detail" in response_not_found.json()
-    assert "Shop_rotation with id 99999 not found" in response_not_found.json()["detail"]
+    assert (
+        "Shop_rotation with id 99999 not found" in response_not_found.json()["detail"]
+    )
 
 
 @pytest.mark.asyncio
@@ -183,13 +189,16 @@ async def test_update_shop_rotation(
 ):
     """Tests the PATCH /api/v1/shop_rotations/{id} endpoint for updating an existing shop rotation."""
     create_response = await client.post(
-        "/api/v1/shop_rotations/", json=create_test_shop_rotation_payload.model_dump(mode='json')
+        "/api/v1/shop_rotations/",
+        json=create_test_shop_rotation_payload.model_dump(mode="json"),
     )
     rotation_id = create_response.json()["id"]
 
     response = await client.patch(
         f"/api/v1/shop_rotations/{rotation_id}",
-        json=create_update_shop_rotation_payload.model_dump(mode='json', exclude_unset=True),
+        json=create_update_shop_rotation_payload.model_dump(
+            mode="json", exclude_unset=True
+        ),
     )
     assert response.status_code == 200
     response_data = response.json()
@@ -200,11 +209,15 @@ async def test_update_shop_rotation(
     updated_rotation = await db_session.get(ShopRotation, rotation_id)
     assert updated_rotation.name == create_update_shop_rotation_payload.name
 
-    assert updated_rotation.end_date.strftime("%Y-%m-%d %H:%M:%S") == create_update_shop_rotation_payload.end_date.strftime("%Y-%m-%d %H:%M:%S")
+    assert updated_rotation.end_date.strftime(
+        "%Y-%m-%d %H:%M:%S"
+    ) == create_update_shop_rotation_payload.end_date.strftime("%Y-%m-%d %H:%M:%S")
 
     response_not_found = await client.patch(
         "/api/v1/shop_rotations/99999",
-        json=create_update_shop_rotation_payload.model_dump(mode='json', exclude_unset=True),
+        json=create_update_shop_rotation_payload.model_dump(
+            mode="json", exclude_unset=True
+        ),
     )
     assert response_not_found.status_code == 404
     assert "detail" in response_not_found.json()
@@ -218,7 +231,8 @@ async def test_delete_shop_rotation(
 ):
     """Tests the DELETE /api/v1/shop_rotations/{id} endpoint for deleting a shop rotation."""
     create_response = await client.post(
-        "/api/v1/shop_rotations/", json=create_test_shop_rotation_payload.model_dump(mode='json')
+        "/api/v1/shop_rotations/",
+        json=create_test_shop_rotation_payload.model_dump(mode="json"),
     )
     rotation_id = create_response.json()["id"]
 
@@ -245,7 +259,8 @@ async def test_get_shop_rotation_count(
     assert response_initial.json()["count"] == 0
 
     await client.post(
-        "/api/v1/shop_rotations/", json=create_test_shop_rotation_payload.model_dump(mode='json')
+        "/api/v1/shop_rotations/",
+        json=create_test_shop_rotation_payload.model_dump(mode="json"),
     )
 
     response_after_create = await client.get("/api/v1/shop_rotations/count")
@@ -261,7 +276,8 @@ async def test_check_shop_rotation_exists(
 ):
     """Tests the GET /api/v1/shop_rotations/{id}/exists endpoint for checking shop rotation existence."""
     create_response = await client.post(
-        "/api/v1/shop_rotations/", json=create_test_shop_rotation_payload.model_dump(mode='json')
+        "/api/v1/shop_rotations/",
+        json=create_test_shop_rotation_payload.model_dump(mode="json"),
     )
     rotation_id = create_response.json()["id"]
 
@@ -283,8 +299,8 @@ async def test_bulk_create_shop_rotations(
 ):
     """Tests the POST /api/v1/shop_rotations/bulk endpoint for bulk creating shop rotations."""
     rotations_payload = [
-        create_test_shop_rotation_payload.model_dump(mode='json'),
-        create_another_test_shop_rotation_payload.model_dump(mode='json'),
+        create_test_shop_rotation_payload.model_dump(mode="json"),
+        create_another_test_shop_rotation_payload.model_dump(mode="json"),
     ]
 
     response = await client.post("/api/v1/shop_rotations/bulk", json=rotations_payload)
@@ -306,7 +322,7 @@ async def test_bulk_create_shop_rotations(
             start_date=datetime.now(timezone.utc),
             end_date=datetime.now(timezone.utc) + timedelta(days=1),
             theme=ItemTheme.COMMON,
-        ).model_dump(mode='json')
+        ).model_dump(mode="json")
         for i in range(101)
     ]
     response_limit_exceeded = await client.post(

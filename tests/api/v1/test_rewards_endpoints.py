@@ -6,9 +6,6 @@ from apps.models.achievement import Reward
 from apps.schemas.achievement import RewardCreate, RewardUpdate
 
 
-
-
-
 @pytest_asyncio.fixture
 async def create_test_reward_payload():
     """
@@ -45,9 +42,6 @@ async def create_update_reward_payload():
     return RewardUpdate(name="Grand Beginner's Luck", gold=150, experience=75)
 
 
-
-
-
 @pytest.mark.asyncio
 async def test_create_reward(
     client: AsyncClient,
@@ -55,7 +49,9 @@ async def test_create_reward(
     create_test_reward_payload: RewardCreate,
 ):
     """Tests the POST /api/v1/rewards/ endpoint for creating a new reward."""
-    response = await client.post("/api/v1/rewards/", json=create_test_reward_payload.model_dump(mode='json'))
+    response = await client.post(
+        "/api/v1/rewards/", json=create_test_reward_payload.model_dump(mode="json")
+    )
 
     assert response.status_code == 201
     response_data = response.json()
@@ -79,8 +75,13 @@ async def test_get_rewards(
     create_another_test_reward_payload: RewardCreate,
 ):
     """Tests the GET /api/v1/rewards/ endpoint for retrieving a list of rewards."""
-    await client.post("/api/v1/rewards/", json=create_test_reward_payload.model_dump(mode='json'))
-    await client.post("/api/v1/rewards/", json=create_another_test_reward_payload.model_dump(mode='json'))
+    await client.post(
+        "/api/v1/rewards/", json=create_test_reward_payload.model_dump(mode="json")
+    )
+    await client.post(
+        "/api/v1/rewards/",
+        json=create_another_test_reward_payload.model_dump(mode="json"),
+    )
 
     response = await client.get("/api/v1/rewards/")
 
@@ -108,7 +109,9 @@ async def test_get_rewards_pagination(
             experience=5 * i,
             health_points=i,
         )
-        await client.post("/api/v1/rewards/", json=reward_payload.model_dump(mode='json'))
+        await client.post(
+            "/api/v1/rewards/", json=reward_payload.model_dump(mode="json")
+        )
 
     response = await client.get("/api/v1/rewards/?skip=1&limit=2&order_by=created_at")
     assert response.status_code == 200
@@ -125,8 +128,13 @@ async def test_get_rewards_filter_by_name(
     create_another_test_reward_payload: RewardCreate,
 ):
     """Tests name filtering for the GET /api/v1/rewards/ endpoint."""
-    await client.post("/api/v1/rewards/", json=create_test_reward_payload.model_dump(mode='json'))
-    await client.post("/api/v1/rewards/", json=create_another_test_reward_payload.model_dump(mode='json'))
+    await client.post(
+        "/api/v1/rewards/", json=create_test_reward_payload.model_dump(mode="json")
+    )
+    await client.post(
+        "/api/v1/rewards/",
+        json=create_another_test_reward_payload.model_dump(mode="json"),
+    )
 
     response = await client.get("/api/v1/rewards/?name=Bonus")
     assert response.status_code == 200
@@ -143,7 +151,7 @@ async def test_get_reward_by_id(
 ):
     """Tests the GET /api/v1/rewards/{id} endpoint for retrieving a reward by ID."""
     create_response = await client.post(
-        "/api/v1/rewards/", json=create_test_reward_payload.model_dump(mode='json')
+        "/api/v1/rewards/", json=create_test_reward_payload.model_dump(mode="json")
     )
     reward_id = create_response.json()["id"]
 
@@ -170,12 +178,13 @@ async def test_update_reward(
 ):
     """Tests the PATCH /api/v1/rewards/{id} endpoint for updating an existing reward."""
     create_response = await client.post(
-        "/api/v1/rewards/", json=create_test_reward_payload.model_dump(mode='json')
+        "/api/v1/rewards/", json=create_test_reward_payload.model_dump(mode="json")
     )
     reward_id = create_response.json()["id"]
 
     response = await client.patch(
-        f"/api/v1/rewards/{reward_id}", json=create_update_reward_payload.model_dump(mode='json', exclude_unset=True)
+        f"/api/v1/rewards/{reward_id}",
+        json=create_update_reward_payload.model_dump(mode="json", exclude_unset=True),
     )
     assert response.status_code == 200
     response_data = response.json()
@@ -191,7 +200,8 @@ async def test_update_reward(
     assert updated_reward.experience == create_update_reward_payload.experience
 
     response_not_found = await client.patch(
-        "/api/v1/rewards/99999", json=create_update_reward_payload.model_dump(mode='json', exclude_unset=True)
+        "/api/v1/rewards/99999",
+        json=create_update_reward_payload.model_dump(mode="json", exclude_unset=True),
     )
     assert response_not_found.status_code == 404
     assert "detail" in response_not_found.json()
@@ -205,7 +215,7 @@ async def test_delete_reward(
 ):
     """Tests the DELETE /api/v1/rewards/{id} endpoint for deleting a reward."""
     create_response = await client.post(
-        "/api/v1/rewards/", json=create_test_reward_payload.model_dump(mode='json')
+        "/api/v1/rewards/", json=create_test_reward_payload.model_dump(mode="json")
     )
     reward_id = create_response.json()["id"]
 
@@ -231,7 +241,9 @@ async def test_get_reward_count(
     assert response_initial.status_code == 200
     assert response_initial.json()["count"] == 0
 
-    await client.post("/api/v1/rewards/", json=create_test_reward_payload.model_dump(mode='json'))
+    await client.post(
+        "/api/v1/rewards/", json=create_test_reward_payload.model_dump(mode="json")
+    )
 
     response_after_create = await client.get("/api/v1/rewards/count")
     assert response_after_create.status_code == 200
@@ -246,7 +258,7 @@ async def test_check_reward_exists(
 ):
     """Tests the GET /api/v1/rewards/{id}/exists endpoint for checking reward existence."""
     create_response = await client.post(
-        "/api/v1/rewards/", json=create_test_reward_payload.model_dump(mode='json')
+        "/api/v1/rewards/", json=create_test_reward_payload.model_dump(mode="json")
     )
     reward_id = create_response.json()["id"]
 
@@ -268,8 +280,8 @@ async def test_bulk_create_rewards(
 ):
     """Tests the POST /api/v1/rewards/bulk endpoint for bulk creating rewards."""
     rewards_payload = [
-        create_test_reward_payload.model_dump(mode='json'),
-        create_another_test_reward_payload.model_dump(mode='json'),
+        create_test_reward_payload.model_dump(mode="json"),
+        create_another_test_reward_payload.model_dump(mode="json"),
     ]
 
     response = await client.post("/api/v1/rewards/bulk", json=rewards_payload)
@@ -291,11 +303,14 @@ async def test_bulk_create_rewards(
             gold=i,
             experience=i,
             health_points=i,
-        ).model_dump(mode='json')
+        ).model_dump(mode="json")
         for i in range(101)
     ]
     response_limit_exceeded = await client.post(
         "/api/v1/rewards/bulk", json=large_rewards_payload
     )
     assert response_limit_exceeded.status_code == 400
-    assert "Cannot create more than 100 rewards at once" in response_limit_exceeded.json()["detail"]
+    assert (
+        "Cannot create more than 100 rewards at once"
+        in response_limit_exceeded.json()["detail"]
+    )

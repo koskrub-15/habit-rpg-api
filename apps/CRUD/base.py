@@ -88,17 +88,19 @@ class BaseCRUD(Generic[ModelType, CreateSchemaType, UpdateSchemaType]):
             attr = getattr(model, rel_name)
             # Check if it's a relationship or similar ORM attribute
             from sqlalchemy.orm import RelationshipProperty
+
             if isinstance(getattr(attr, "property", None), RelationshipProperty):
                 return attr
-        
+
         # Try with leading underscore
         und_rel_name = f"_{rel_name}"
         if hasattr(model, und_rel_name):
             attr = getattr(model, und_rel_name)
             from sqlalchemy.orm import RelationshipProperty
+
             if isinstance(getattr(attr, "property", None), RelationshipProperty):
                 return attr
-        
+
         return None
 
     async def get(
@@ -145,7 +147,9 @@ class BaseCRUD(Generic[ModelType, CreateSchemaType, UpdateSchemaType]):
                         else:
                             # Fallback to string if not found as ORM attribute
                             if hasattr(self.model, rel):
-                                stmt = stmt.options(selectinload(getattr(self.model, rel)))
+                                stmt = stmt.options(
+                                    selectinload(getattr(self.model, rel))
+                                )
 
             result = await db.execute(stmt)
             obj = result.scalar_one_or_none()
@@ -215,7 +219,9 @@ class BaseCRUD(Generic[ModelType, CreateSchemaType, UpdateSchemaType]):
                             stmt = stmt.options(selectinload(rel_attr))
                         else:
                             if hasattr(self.model, rel):
-                                stmt = stmt.options(selectinload(getattr(self.model, rel)))
+                                stmt = stmt.options(
+                                    selectinload(getattr(self.model, rel))
+                                )
 
             if filters:
                 conditions = []

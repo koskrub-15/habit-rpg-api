@@ -1,12 +1,15 @@
 from __future__ import annotations
 
 from datetime import datetime
-from typing import List, Optional
+from typing import TYPE_CHECKING, List, Optional
 
 from pydantic import BaseModel
 
 from apps.db.base import BaseSchemaResponse, SimpleBaseSchemaCreate
 from apps.models.item import ItemTheme, Rarity
+
+if TYPE_CHECKING:
+    from apps.schemas.item import ItemResponseShort
 
 
 class ShopItemCreate(SimpleBaseSchemaCreate):

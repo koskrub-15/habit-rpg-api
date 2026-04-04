@@ -37,6 +37,8 @@ async def complete_habit(
     """
     # We need to find the user_id for this habit first
     habit = await habit_crud.get(db, habit_id, raise_not_found=True)
+    if not habit:
+        return None
     return await user_crud.complete_activity(
         db,
         user_id=habit.user_id,

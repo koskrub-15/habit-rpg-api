@@ -14,9 +14,6 @@ from apps.schemas.item import ItemCreate
 from datetime import datetime, timedelta, timezone
 
 
-
-
-
 @pytest_asyncio.fixture
 async def create_test_shop_rotation_for_sri(db_session: AsyncSession):
     """
@@ -45,7 +42,7 @@ async def create_test_shop_item_for_sri(db_session: AsyncSession):
         item_type=ItemType.MISC,
         rarity=Rarity.COMMON,
     )
-    item = Item(**item_data.model_dump(mode='json'))
+    item = Item(**item_data.model_dump(mode="json"))
     db_session.add(item)
     await db_session.commit()
 
@@ -56,7 +53,7 @@ async def create_test_shop_item_for_sri(db_session: AsyncSession):
         price=100,
         rarity=Rarity.COMMON,
     )
-    shop_item = ShopItem(**shop_item_data.model_dump(mode='json'))
+    shop_item = ShopItem(**shop_item_data.model_dump(mode="json"))
     db_session.add(shop_item)
     await db_session.commit()
     return shop_item
@@ -91,7 +88,7 @@ async def create_another_test_shop_item_for_sri(db_session: AsyncSession):
         item_type=ItemType.MISC,
         rarity=Rarity.UNCOMMON,
     )
-    item = Item(**item_data.model_dump(mode='json'))
+    item = Item(**item_data.model_dump(mode="json"))
     db_session.add(item)
     await db_session.commit()
 
@@ -102,7 +99,7 @@ async def create_another_test_shop_item_for_sri(db_session: AsyncSession):
         price=200,
         rarity=Rarity.UNCOMMON,
     )
-    shop_item = ShopItem(**shop_item_data.model_dump(mode='json'))
+    shop_item = ShopItem(**shop_item_data.model_dump(mode="json"))
     db_session.add(shop_item)
     await db_session.commit()
     return shop_item
@@ -136,9 +133,6 @@ async def create_update_shop_rotation_item_payload():
     )
 
 
-
-
-
 @pytest.mark.asyncio
 async def test_create_shop_rotation_item(
     client: AsyncClient,
@@ -150,7 +144,7 @@ async def test_create_shop_rotation_item(
     """Tests the POST /api/v1/shop_rotation_items/ endpoint for creating a new shop rotation item."""
     response = await client.post(
         "/api/v1/shop_rotation_items/",
-        json=create_test_shop_rotation_item_payload.model_dump(mode='json'),
+        json=create_test_shop_rotation_item_payload.model_dump(mode="json"),
     )
 
     assert response.status_code == 201
@@ -160,8 +154,14 @@ async def test_create_shop_rotation_item(
     assert response_data["name"] == create_test_shop_rotation_item_payload.name
     assert response_data["rotation_id"] == create_test_shop_rotation_for_sri.id
     assert response_data["shop_item_id"] == create_test_shop_item_for_sri.id
-    assert response_data["is_random_common"] == create_test_shop_rotation_item_payload.is_random_common
-    assert response_data["slot_in_display"] == create_test_shop_rotation_item_payload.slot_in_display
+    assert (
+        response_data["is_random_common"]
+        == create_test_shop_rotation_item_payload.is_random_common
+    )
+    assert (
+        response_data["slot_in_display"]
+        == create_test_shop_rotation_item_payload.slot_in_display
+    )
 
     created_sri = await db_session.get(ShopRotationItem, response_data["id"])
     assert created_sri is not None
@@ -182,11 +182,11 @@ async def test_get_shop_rotation_items(
     """Tests the GET /api/v1/shop_rotation_items/ endpoint for retrieving a list of shop rotation items."""
     await client.post(
         "/api/v1/shop_rotation_items/",
-        json=create_test_shop_rotation_item_payload.model_dump(mode='json'),
+        json=create_test_shop_rotation_item_payload.model_dump(mode="json"),
     )
     await client.post(
         "/api/v1/shop_rotation_items/",
-        json=create_another_test_shop_rotation_item_payload.model_dump(mode='json'),
+        json=create_another_test_shop_rotation_item_payload.model_dump(mode="json"),
     )
 
     response = await client.get("/api/v1/shop_rotation_items/")
@@ -211,7 +211,7 @@ async def test_get_shop_rotation_items_pagination(
 ):
     """Tests pagination for the GET /api/v1/shop_rotation_items/ endpoint."""
     rotation_id = create_test_shop_rotation_for_sri.id
-    
+
     shop_items = []
     for i in range(5):
         item_data = ItemCreate(
@@ -220,20 +220,20 @@ async def test_get_shop_rotation_items_pagination(
             item_type=ItemType.MISC,
             rarity=Rarity.COMMON,
         )
-        item = Item(**item_data.model_dump(mode='json'))
+        item = Item(**item_data.model_dump(mode="json"))
         db_session.add(item)
         await db_session.flush()
-        
+
         shop_item_data = ShopItemCreate(
             name=f"Pagination Shop Item {i}",
             description="desc",
             item_id=item.id,
             price=100 + i,
         )
-        shop_item = ShopItem(**shop_item_data.model_dump(mode='json'))
+        shop_item = ShopItem(**shop_item_data.model_dump(mode="json"))
         db_session.add(shop_item)
         shop_items.append(shop_item)
-    
+
     await db_session.commit()
 
     for i, shop_item in enumerate(shop_items):
@@ -244,9 +244,13 @@ async def test_get_shop_rotation_items_pagination(
             shop_item_id=shop_item.id,
             slot_in_display=i + 1,
         )
-        await client.post("/api/v1/shop_rotation_items/", json=sri_payload.model_dump(mode='json'))
+        await client.post(
+            "/api/v1/shop_rotation_items/", json=sri_payload.model_dump(mode="json")
+        )
 
-    response = await client.get("/api/v1/shop_rotation_items/?skip=1&limit=2&order_by=created_at")
+    response = await client.get(
+        "/api/v1/shop_rotation_items/?skip=1&limit=2&order_by=created_at"
+    )
     assert response.status_code == 200
     response_data = response.json()
     assert len(response_data) == 2
@@ -266,11 +270,11 @@ async def test_get_shop_rotation_items_filter_by_name(
     """Tests name filtering for the GET /api/v1/shop_rotation_items/ endpoint."""
     await client.post(
         "/api/v1/shop_rotation_items/",
-        json=create_test_shop_rotation_item_payload.model_dump(mode='json'),
+        json=create_test_shop_rotation_item_payload.model_dump(mode="json"),
     )
     await client.post(
         "/api/v1/shop_rotation_items/",
-        json=create_another_test_shop_rotation_item_payload.model_dump(mode='json'),
+        json=create_another_test_shop_rotation_item_payload.model_dump(mode="json"),
     )
 
     response = await client.get("/api/v1/shop_rotation_items/?name=Entry 1")
@@ -291,7 +295,7 @@ async def test_get_shop_rotation_item_by_id(
     """Tests the GET /api/v1/shop_rotation_items/{id} endpoint for retrieving a shop rotation item by ID."""
     create_response = await client.post(
         "/api/v1/shop_rotation_items/",
-        json=create_test_shop_rotation_item_payload.model_dump(mode='json'),
+        json=create_test_shop_rotation_item_payload.model_dump(mode="json"),
     )
     sri_id = create_response.json()["id"]
 
@@ -325,30 +329,46 @@ async def test_update_shop_rotation_item(
     """Tests the PATCH /api/v1/shop_rotation_items/{id} endpoint for updating an existing shop rotation item."""
     create_response = await client.post(
         "/api/v1/shop_rotation_items/",
-        json=create_test_shop_rotation_item_payload.model_dump(mode='json'),
+        json=create_test_shop_rotation_item_payload.model_dump(mode="json"),
     )
     sri_id = create_response.json()["id"]
 
     response = await client.patch(
         f"/api/v1/shop_rotation_items/{sri_id}",
-        json=create_update_shop_rotation_item_payload.model_dump(mode='json', exclude_unset=True),
+        json=create_update_shop_rotation_item_payload.model_dump(
+            mode="json", exclude_unset=True
+        ),
     )
     assert response.status_code == 200
     response_data = response.json()
 
     assert response_data["id"] == sri_id
     assert response_data["name"] == create_update_shop_rotation_item_payload.name
-    assert response_data["is_random_common"] == create_update_shop_rotation_item_payload.is_random_common
-    assert response_data["slot_in_display"] == create_update_shop_rotation_item_payload.slot_in_display
+    assert (
+        response_data["is_random_common"]
+        == create_update_shop_rotation_item_payload.is_random_common
+    )
+    assert (
+        response_data["slot_in_display"]
+        == create_update_shop_rotation_item_payload.slot_in_display
+    )
 
     updated_sri = await db_session.get(ShopRotationItem, sri_id)
     assert updated_sri.name == create_update_shop_rotation_item_payload.name
-    assert updated_sri.is_random_common == create_update_shop_rotation_item_payload.is_random_common
-    assert updated_sri.slot_in_display == create_update_shop_rotation_item_payload.slot_in_display
+    assert (
+        updated_sri.is_random_common
+        == create_update_shop_rotation_item_payload.is_random_common
+    )
+    assert (
+        updated_sri.slot_in_display
+        == create_update_shop_rotation_item_payload.slot_in_display
+    )
 
     response_not_found = await client.patch(
         "/api/v1/shop_rotation_items/99999",
-        json=create_update_shop_rotation_item_payload.model_dump(mode='json', exclude_unset=True),
+        json=create_update_shop_rotation_item_payload.model_dump(
+            mode="json", exclude_unset=True
+        ),
     )
     assert response_not_found.status_code == 404
     assert "detail" in response_not_found.json()
@@ -365,7 +385,7 @@ async def test_delete_shop_rotation_item(
     """Tests the DELETE /api/v1/shop_rotation_items/{id} endpoint for deleting a shop rotation item."""
     create_response = await client.post(
         "/api/v1/shop_rotation_items/",
-        json=create_test_shop_rotation_item_payload.model_dump(mode='json'),
+        json=create_test_shop_rotation_item_payload.model_dump(mode="json"),
     )
     sri_id = create_response.json()["id"]
 
@@ -395,7 +415,7 @@ async def test_get_shop_rotation_item_count(
 
     await client.post(
         "/api/v1/shop_rotation_items/",
-        json=create_test_shop_rotation_item_payload.model_dump(mode='json'),
+        json=create_test_shop_rotation_item_payload.model_dump(mode="json"),
     )
 
     response_after_create = await client.get("/api/v1/shop_rotation_items/count")
@@ -414,7 +434,7 @@ async def test_check_shop_rotation_item_exists(
     """Tests the GET /api/v1/shop_rotation_items/{id}/exists endpoint for checking shop rotation item existence."""
     create_response = await client.post(
         "/api/v1/shop_rotation_items/",
-        json=create_test_shop_rotation_item_payload.model_dump(mode='json'),
+        json=create_test_shop_rotation_item_payload.model_dump(mode="json"),
     )
     sri_id = create_response.json()["id"]
 
@@ -449,14 +469,14 @@ async def test_bulk_create_shop_rotation_items(
             rotation_id=rotation.id,
             shop_item_id=shop_item_1.id,
             slot_in_display=1,
-        ).model_dump(mode='json'),
+        ).model_dump(mode="json"),
         ShopRotationItemCreate(
             name="Bulk SRI 2",
             description="Description 2",
             rotation_id=rotation.id,
             shop_item_id=shop_item_2.id,
             slot_in_display=2,
-        ).model_dump(mode='json'),
+        ).model_dump(mode="json"),
     ]
 
     response = await client.post("/api/v1/shop_rotation_items/bulk", json=sri_payloads)
@@ -470,13 +490,15 @@ async def test_bulk_create_shop_rotation_items(
         assert created_sri is not None
         assert created_sri.name == sri_data["name"]
 
-
     bulk_shop_items = []
     for i in range(101):
         item_data = ItemCreate(
-            name=f"Bulk Item {i}", description="desc", item_type=ItemType.MISC, rarity=Rarity.COMMON
+            name=f"Bulk Item {i}",
+            description="desc",
+            item_type=ItemType.MISC,
+            rarity=Rarity.COMMON,
         )
-        item = Item(**item_data.model_dump(mode='json'))
+        item = Item(**item_data.model_dump(mode="json"))
         db_session.add(item)
         await db_session.flush()
         shop_item_data = ShopItemCreate(
@@ -485,7 +507,7 @@ async def test_bulk_create_shop_rotation_items(
             item_id=item.id,
             price=i + 1,
         )
-        shop_item = ShopItem(**shop_item_data.model_dump(mode='json'))
+        shop_item = ShopItem(**shop_item_data.model_dump(mode="json"))
         db_session.add(shop_item)
         bulk_shop_items.append(shop_item)
     await db_session.commit()
@@ -497,7 +519,7 @@ async def test_bulk_create_shop_rotation_items(
             rotation_id=rotation.id,
             shop_item_id=bulk_shop_items[i].id,
             slot_in_display=i + 1,
-        ).model_dump(mode='json')
+        ).model_dump(mode="json")
         for i in range(101)
     ]
     response_limit_exceeded = await client.post(

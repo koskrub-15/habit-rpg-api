@@ -11,18 +11,18 @@ from apps.schemas.notification import (
 from apps.schemas.user import UserCreate
 
 
-
-
-
 @pytest_asyncio.fixture
 async def create_test_user_for_notification_prefs(db_session: AsyncSession):
     """
     Fixture to create a test user for user notification preference-related tests.
     """
     user_data = UserCreate(
-        name="Pref User", email="pref@example.com", password="prefpassword", description="User for notification preferences"
+        name="Pref User",
+        email="pref@example.com",
+        password="prefpassword",
+        description="User for notification preferences",
     )
-    user = User(**user_data.model_dump(mode='json'))
+    user = User(**user_data.model_dump(mode="json"))
     db_session.add(user)
     await db_session.commit()
     await db_session.refresh(user)
@@ -64,10 +64,9 @@ async def create_update_user_notification_preference_payload():
     """
     Fixture providing data for updating a user notification preference.
     """
-    return UserNotificationPreferenceUpdate(name="Updated System Pref", is_enabled=False)
-
-
-
+    return UserNotificationPreferenceUpdate(
+        name="Updated System Pref", is_enabled=False
+    )
 
 
 @pytest.mark.asyncio
@@ -80,20 +79,25 @@ async def test_create_user_notification_preference(
     """Tests the POST /api/v1/user_notification_preferences/ endpoint for creating a new preference."""
     response = await client.post(
         "/api/v1/user_notification_preferences/",
-        json=create_test_user_notification_preference_payload.model_dump(mode='json'),
+        json=create_test_user_notification_preference_payload.model_dump(mode="json"),
     )
 
     assert response.status_code == 201
     response_data = response.json()
 
     assert "id" in response_data
-    assert response_data["name"] == create_test_user_notification_preference_payload.name
+    assert (
+        response_data["name"] == create_test_user_notification_preference_payload.name
+    )
     assert response_data["user_id"] == create_test_user_for_notification_prefs.id
     assert (
         response_data["notification_type"]
         == create_test_user_notification_preference_payload.notification_type.value
     )
-    assert response_data["is_enabled"] == create_test_user_notification_preference_payload.is_enabled
+    assert (
+        response_data["is_enabled"]
+        == create_test_user_notification_preference_payload.is_enabled
+    )
 
     created_pref = await db_session.get(UserNotificationPreference, response_data["id"])
     assert created_pref is not None
@@ -112,11 +116,13 @@ async def test_get_user_notification_preferences(
     """Tests the GET /api/v1/user_notification_preferences/ endpoint for retrieving a list of preferences."""
     await client.post(
         "/api/v1/user_notification_preferences/",
-        json=create_test_user_notification_preference_payload.model_dump(mode='json'),
+        json=create_test_user_notification_preference_payload.model_dump(mode="json"),
     )
     await client.post(
         "/api/v1/user_notification_preferences/",
-        json=create_another_test_user_notification_preference_payload.model_dump(mode='json'),
+        json=create_another_test_user_notification_preference_payload.model_dump(
+            mode="json"
+        ),
     )
 
     response = await client.get("/api/v1/user_notification_preferences/")
@@ -147,9 +153,14 @@ async def test_get_user_notification_preferences_pagination(
             notification_type=notification_types[i % len(notification_types)],
             is_enabled=(i % 2 == 0),
         )
-        await client.post("/api/v1/user_notification_preferences/", json=pref_payload.model_dump(mode='json'))
+        await client.post(
+            "/api/v1/user_notification_preferences/",
+            json=pref_payload.model_dump(mode="json"),
+        )
 
-    response = await client.get("/api/v1/user_notification_preferences/?skip=1&limit=2&order_by=created_at")
+    response = await client.get(
+        "/api/v1/user_notification_preferences/?skip=1&limit=2&order_by=created_at"
+    )
     assert response.status_code == 200
     response_data = response.json()
     assert len(response_data) == 2
@@ -167,11 +178,13 @@ async def test_get_user_notification_preferences_filter_by_name(
     """Tests name filtering for the GET /api/v1/user_notification_preferences/ endpoint."""
     await client.post(
         "/api/v1/user_notification_preferences/",
-        json=create_test_user_notification_preference_payload.model_dump(mode='json'),
+        json=create_test_user_notification_preference_payload.model_dump(mode="json"),
     )
     await client.post(
         "/api/v1/user_notification_preferences/",
-        json=create_another_test_user_notification_preference_payload.model_dump(mode='json'),
+        json=create_another_test_user_notification_preference_payload.model_dump(
+            mode="json"
+        ),
     )
 
     response = await client.get("/api/v1/user_notification_preferences/?name=System")
@@ -191,7 +204,7 @@ async def test_get_user_notification_preference_by_id(
     """Tests the GET /api/v1/user_notification_preferences/{id} endpoint for retrieving a preference by ID."""
     create_response = await client.post(
         "/api/v1/user_notification_preferences/",
-        json=create_test_user_notification_preference_payload.model_dump(mode='json'),
+        json=create_test_user_notification_preference_payload.model_dump(mode="json"),
     )
     pref_id = create_response.json()["id"]
 
@@ -200,7 +213,9 @@ async def test_get_user_notification_preference_by_id(
     response_data = response.json()
 
     assert response_data["id"] == pref_id
-    assert response_data["name"] == create_test_user_notification_preference_payload.name
+    assert (
+        response_data["name"] == create_test_user_notification_preference_payload.name
+    )
     assert response_data["user_id"] == create_test_user_for_notification_prefs.id
 
     response_not_found = await client.get("/api/v1/user_notification_preferences/99999")
@@ -223,28 +238,40 @@ async def test_update_user_notification_preference(
     """Tests the PATCH /api/v1/user_notification_preferences/{id} endpoint for updating an existing preference."""
     create_response = await client.post(
         "/api/v1/user_notification_preferences/",
-        json=create_test_user_notification_preference_payload.model_dump(mode='json'),
+        json=create_test_user_notification_preference_payload.model_dump(mode="json"),
     )
     pref_id = create_response.json()["id"]
 
     response = await client.patch(
         f"/api/v1/user_notification_preferences/{pref_id}",
-        json=create_update_user_notification_preference_payload.model_dump(mode='json', exclude_unset=True),
+        json=create_update_user_notification_preference_payload.model_dump(
+            mode="json", exclude_unset=True
+        ),
     )
     assert response.status_code == 200
     response_data = response.json()
 
     assert response_data["id"] == pref_id
-    assert response_data["name"] == create_update_user_notification_preference_payload.name
-    assert response_data["is_enabled"] == create_update_user_notification_preference_payload.is_enabled
+    assert (
+        response_data["name"] == create_update_user_notification_preference_payload.name
+    )
+    assert (
+        response_data["is_enabled"]
+        == create_update_user_notification_preference_payload.is_enabled
+    )
 
     updated_pref = await db_session.get(UserNotificationPreference, pref_id)
     assert updated_pref.name == create_update_user_notification_preference_payload.name
-    assert updated_pref.is_enabled == create_update_user_notification_preference_payload.is_enabled
+    assert (
+        updated_pref.is_enabled
+        == create_update_user_notification_preference_payload.is_enabled
+    )
 
     response_not_found = await client.patch(
         "/api/v1/user_notification_preferences/99999",
-        json=create_update_user_notification_preference_payload.model_dump(mode='json', exclude_unset=True),
+        json=create_update_user_notification_preference_payload.model_dump(
+            mode="json", exclude_unset=True
+        ),
     )
     assert response_not_found.status_code == 404
     assert "detail" in response_not_found.json()
@@ -260,7 +287,7 @@ async def test_delete_user_notification_preference(
     """Tests the DELETE /api/v1/user_notification_preferences/{id} endpoint for deleting a preference."""
     create_response = await client.post(
         "/api/v1/user_notification_preferences/",
-        json=create_test_user_notification_preference_payload.model_dump(mode='json'),
+        json=create_test_user_notification_preference_payload.model_dump(mode="json"),
     )
     pref_id = create_response.json()["id"]
 
@@ -270,7 +297,9 @@ async def test_delete_user_notification_preference(
     deleted_pref = await db_session.get(UserNotificationPreference, pref_id)
     assert deleted_pref is None
 
-    response_not_found = await client.delete("/api/v1/user_notification_preferences/99999")
+    response_not_found = await client.delete(
+        "/api/v1/user_notification_preferences/99999"
+    )
     assert response_not_found.status_code == 404
     assert "detail" in response_not_found.json()
 
@@ -289,10 +318,12 @@ async def test_get_user_notification_preference_count(
 
     await client.post(
         "/api/v1/user_notification_preferences/",
-        json=create_test_user_notification_preference_payload.model_dump(mode='json'),
+        json=create_test_user_notification_preference_payload.model_dump(mode="json"),
     )
 
-    response_after_create = await client.get("/api/v1/user_notification_preferences/count")
+    response_after_create = await client.get(
+        "/api/v1/user_notification_preferences/count"
+    )
     assert response_after_create.status_code == 200
     assert response_after_create.json()["count"] == 1
 
@@ -307,7 +338,7 @@ async def test_check_user_notification_preference_exists(
     """Tests the GET /api/v1/user_notification_preferences/{id}/exists endpoint for checking preference existence."""
     create_response = await client.post(
         "/api/v1/user_notification_preferences/",
-        json=create_test_user_notification_preference_payload.model_dump(mode='json'),
+        json=create_test_user_notification_preference_payload.model_dump(mode="json"),
     )
     pref_id = create_response.json()["id"]
 
@@ -317,7 +348,9 @@ async def test_check_user_notification_preference_exists(
     assert response_exists.status_code == 200
     assert response_exists.json()["exists"] is True
 
-    response_not_exists = await client.get("/api/v1/user_notification_preferences/99999/exists")
+    response_not_exists = await client.get(
+        "/api/v1/user_notification_preferences/99999/exists"
+    )
     assert response_not_exists.status_code == 200
     assert response_not_exists.json()["exists"] is False
 
@@ -334,13 +367,17 @@ async def test_bulk_create_user_notification_preferences(
     user = create_test_user_for_notification_prefs
 
     prefs_payload = [
-        create_test_user_notification_preference_payload.model_dump(mode='json'),
-        create_another_test_user_notification_preference_payload.model_dump(mode='json'),
+        create_test_user_notification_preference_payload.model_dump(mode="json"),
+        create_another_test_user_notification_preference_payload.model_dump(
+            mode="json"
+        ),
     ]
     for payload in prefs_payload:
         payload["user_id"] = user.id
 
-    response = await client.post("/api/v1/user_notification_preferences/bulk", json=prefs_payload)
+    response = await client.post(
+        "/api/v1/user_notification_preferences/bulk", json=prefs_payload
+    )
     assert response.status_code == 201
     response_data = response.json()
     assert isinstance(response_data, list)
@@ -351,14 +388,13 @@ async def test_bulk_create_user_notification_preferences(
         assert created_pref is not None
         assert created_pref.name == pref_data["name"]
 
-
     large_prefs_payload = [
         UserNotificationPreferenceCreate(
             name=f"Bulk Pref {i}",
             user_id=user.id,
             notification_type=NotificationType.SYSTEM,
             is_enabled=(i % 2 == 0),
-        ).model_dump(mode='json')
+        ).model_dump(mode="json")
         for i in range(101)
     ]
     response_limit_exceeded = await client.post(

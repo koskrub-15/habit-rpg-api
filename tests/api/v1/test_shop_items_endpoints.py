@@ -9,9 +9,6 @@ from apps.schemas.item import ItemCreate
 from datetime import datetime, timedelta, timezone
 
 
-
-
-
 @pytest_asyncio.fixture
 async def create_test_item_for_shop(db_session: AsyncSession):
     """
@@ -25,7 +22,7 @@ async def create_test_item_for_shop(db_session: AsyncSession):
         attack=10,
         rarity=Rarity.COMMON,
     )
-    item = Item(**item_data.model_dump(mode='json'))
+    item = Item(**item_data.model_dump(mode="json"))
     db_session.add(item)
     await db_session.commit()
     return item
@@ -61,7 +58,7 @@ async def create_another_test_shop_item_payload(db_session: AsyncSession):
         defense=5,
         rarity=Rarity.UNCOMMON,
     )
-    item = Item(**item_data.model_dump(mode='json'))
+    item = Item(**item_data.model_dump(mode="json"))
     db_session.add(item)
     await db_session.commit()
 
@@ -85,9 +82,6 @@ async def create_update_shop_item_payload():
     return ShopItemUpdate(name="Advanced Shop Sword", price=150, stock=8)
 
 
-
-
-
 @pytest.mark.asyncio
 async def test_create_shop_item(
     client: AsyncClient,
@@ -97,7 +91,8 @@ async def test_create_shop_item(
 ):
     """Tests the POST /api/v1/shop_items/ endpoint for creating a new shop item."""
     response = await client.post(
-        "/api/v1/shop_items/", json=create_test_shop_item_payload.model_dump(mode='json')
+        "/api/v1/shop_items/",
+        json=create_test_shop_item_payload.model_dump(mode="json"),
     )
 
     assert response.status_code == 201
@@ -124,10 +119,12 @@ async def test_get_shop_items(
 ):
     """Tests the GET /api/v1/shop_items/ endpoint for retrieving a list of shop items."""
     await client.post(
-        "/api/v1/shop_items/", json=create_test_shop_item_payload.model_dump(mode='json')
+        "/api/v1/shop_items/",
+        json=create_test_shop_item_payload.model_dump(mode="json"),
     )
     await client.post(
-        "/api/v1/shop_items/", json=create_another_test_shop_item_payload.model_dump(mode='json')
+        "/api/v1/shop_items/",
+        json=create_another_test_shop_item_payload.model_dump(mode="json"),
     )
 
     response = await client.get("/api/v1/shop_items/")
@@ -157,9 +154,13 @@ async def test_get_shop_items_pagination(
             price=100 + i,
             rarity=Rarity.COMMON,
         )
-        await client.post("/api/v1/shop_items/", json=shop_item_payload.model_dump(mode='json'))
+        await client.post(
+            "/api/v1/shop_items/", json=shop_item_payload.model_dump(mode="json")
+        )
 
-    response = await client.get("/api/v1/shop_items/?skip=1&limit=2&order_by=created_at")
+    response = await client.get(
+        "/api/v1/shop_items/?skip=1&limit=2&order_by=created_at"
+    )
     assert response.status_code == 200
     response_data = response.json()
     assert len(response_data) == 2
@@ -176,10 +177,12 @@ async def test_get_shop_items_filter_by_name(
 ):
     """Tests name filtering for the GET /api/v1/shop_items/ endpoint."""
     await client.post(
-        "/api/v1/shop_items/", json=create_test_shop_item_payload.model_dump(mode='json')
+        "/api/v1/shop_items/",
+        json=create_test_shop_item_payload.model_dump(mode="json"),
     )
     await client.post(
-        "/api/v1/shop_items/", json=create_another_test_shop_item_payload.model_dump(mode='json')
+        "/api/v1/shop_items/",
+        json=create_another_test_shop_item_payload.model_dump(mode="json"),
     )
 
     response = await client.get("/api/v1/shop_items/?name=Sword")
@@ -198,7 +201,8 @@ async def test_get_shop_item_by_id(
 ):
     """Tests the GET /api/v1/shop_items/{id} endpoint for retrieving a shop item by ID."""
     create_response = await client.post(
-        "/api/v1/shop_items/", json=create_test_shop_item_payload.model_dump(mode='json')
+        "/api/v1/shop_items/",
+        json=create_test_shop_item_payload.model_dump(mode="json"),
     )
     shop_item_id = create_response.json()["id"]
 
@@ -226,13 +230,16 @@ async def test_update_shop_item(
 ):
     """Tests the PATCH /api/v1/shop_items/{id} endpoint for updating an existing shop item."""
     create_response = await client.post(
-        "/api/v1/shop_items/", json=create_test_shop_item_payload.model_dump(mode='json')
+        "/api/v1/shop_items/",
+        json=create_test_shop_item_payload.model_dump(mode="json"),
     )
     shop_item_id = create_response.json()["id"]
 
     response = await client.patch(
         f"/api/v1/shop_items/{shop_item_id}",
-        json=create_update_shop_item_payload.model_dump(mode='json', exclude_unset=True),
+        json=create_update_shop_item_payload.model_dump(
+            mode="json", exclude_unset=True
+        ),
     )
     assert response.status_code == 200
     response_data = response.json()
@@ -249,7 +256,9 @@ async def test_update_shop_item(
 
     response_not_found = await client.patch(
         "/api/v1/shop_items/99999",
-        json=create_update_shop_item_payload.model_dump(mode='json', exclude_unset=True),
+        json=create_update_shop_item_payload.model_dump(
+            mode="json", exclude_unset=True
+        ),
     )
     assert response_not_found.status_code == 404
     assert "detail" in response_not_found.json()
@@ -264,7 +273,8 @@ async def test_delete_shop_item(
 ):
     """Tests the DELETE /api/v1/shop_items/{id} endpoint for deleting a shop item."""
     create_response = await client.post(
-        "/api/v1/shop_items/", json=create_test_shop_item_payload.model_dump(mode='json')
+        "/api/v1/shop_items/",
+        json=create_test_shop_item_payload.model_dump(mode="json"),
     )
     shop_item_id = create_response.json()["id"]
 
@@ -292,7 +302,8 @@ async def test_get_shop_item_count(
     assert response_initial.json()["count"] == 0
 
     await client.post(
-        "/api/v1/shop_items/", json=create_test_shop_item_payload.model_dump(mode='json')
+        "/api/v1/shop_items/",
+        json=create_test_shop_item_payload.model_dump(mode="json"),
     )
 
     response_after_create = await client.get("/api/v1/shop_items/count")
@@ -309,7 +320,8 @@ async def test_check_shop_item_exists(
 ):
     """Tests the GET /api/v1/shop_items/{id}/exists endpoint for checking shop item existence."""
     create_response = await client.post(
-        "/api/v1/shop_items/", json=create_test_shop_item_payload.model_dump(mode='json')
+        "/api/v1/shop_items/",
+        json=create_test_shop_item_payload.model_dump(mode="json"),
     )
     shop_item_id = create_response.json()["id"]
 
@@ -332,20 +344,23 @@ async def test_bulk_create_shop_items(
 ):
     """Tests the POST /api/v1/shop_items/bulk endpoint for bulk creating shop items."""
 
-    
-
     first_item_data = ItemCreate(
-        name="Bulk Item 1", description="Bulk Item Description 1", item_type=ItemType.WEAPON, rarity=Rarity.COMMON
+        name="Bulk Item 1",
+        description="Bulk Item Description 1",
+        item_type=ItemType.WEAPON,
+        rarity=Rarity.COMMON,
     )
-    first_item = Item(**first_item_data.model_dump(mode='json'))
+    first_item = Item(**first_item_data.model_dump(mode="json"))
     db_session.add(first_item)
     await db_session.commit()
 
-
     second_item_data = ItemCreate(
-        name="Bulk Item 2", description="Bulk Item Description 2", item_type=ItemType.ARMOR, rarity=Rarity.UNCOMMON
+        name="Bulk Item 2",
+        description="Bulk Item Description 2",
+        item_type=ItemType.ARMOR,
+        rarity=Rarity.UNCOMMON,
     )
-    second_item = Item(**second_item_data.model_dump(mode='json'))
+    second_item = Item(**second_item_data.model_dump(mode="json"))
     db_session.add(second_item)
     await db_session.commit()
 
@@ -356,14 +371,14 @@ async def test_bulk_create_shop_items(
             item_id=first_item.id,
             price=10,
             rarity=Rarity.COMMON,
-        ).model_dump(mode='json'),
+        ).model_dump(mode="json"),
         ShopItemCreate(
             name="Bulk Shop Item 2",
             description="Description 2",
             item_id=second_item.id,
             price=20,
             rarity=Rarity.UNCOMMON,
-        ).model_dump(mode='json'),
+        ).model_dump(mode="json"),
     ]
 
     response = await client.post("/api/v1/shop_items/bulk", json=shop_items_payload)
@@ -377,7 +392,6 @@ async def test_bulk_create_shop_items(
         assert created_shop_item is not None
         assert created_shop_item.name == shop_item_data["name"]
 
-
     bulk_items_list = []
     for i in range(101):
         item_data = ItemCreate(
@@ -386,7 +400,7 @@ async def test_bulk_create_shop_items(
             item_type=ItemType.MISC,
             rarity=Rarity.COMMON,
         )
-        item = Item(**item_data.model_dump(mode='json'))
+        item = Item(**item_data.model_dump(mode="json"))
         db_session.add(item)
         bulk_items_list.append(item)
     await db_session.commit()
@@ -398,7 +412,7 @@ async def test_bulk_create_shop_items(
             item_id=bulk_items_list[i].id,
             price=10 + i,
             rarity=Rarity.COMMON,
-        ).model_dump(mode='json')
+        ).model_dump(mode="json")
         for i in range(101)
     ]
     response_limit_exceeded = await client.post(

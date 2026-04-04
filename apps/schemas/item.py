@@ -1,11 +1,16 @@
 from __future__ import annotations
 
-from typing import List, Optional
+from typing import TYPE_CHECKING, List, Optional
 
 from pydantic import BaseModel
 
 from apps.db.base import BaseSchemaCreate, BaseSchemaResponse
 from apps.models.item import ItemTheme, ItemType, Rarity
+
+if TYPE_CHECKING:
+    from apps.schemas.achievement import RewardResponseShort
+    from apps.schemas.store_rotation import ShopItemResponseShort
+    from apps.schemas.user import UserResponseShort
 
 
 class ItemCreate(BaseSchemaCreate):

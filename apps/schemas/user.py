@@ -60,7 +60,7 @@ class InventoryItemResponse(BaseSchemaResponse):
 
 
 class CompleteActivityRequest(BaseModel):
-    """input data for \"complete_activity\" """
+    """input data for \"complete_activity\""""
 
     activity_type: str
     activity_id: int
@@ -88,6 +88,7 @@ class UpdateInventoryRequest(BaseModel):
 class EquipItemRequest(BaseModel):
     item_id: int
     slot: SlotType
+
 
 class UnequipItemRequest(BaseModel):
     slot: SlotType

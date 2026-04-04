@@ -37,4 +37,6 @@ user_notification_preference_factory = RouterFactory(
 )
 
 notification_router = notification_factory.create_router()
-user_notification_preference_router = user_notification_preference_factory.create_router()
+user_notification_preference_router = (
+    user_notification_preference_factory.create_router()
+)

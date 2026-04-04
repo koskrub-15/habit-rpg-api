@@ -17,10 +17,12 @@ from apps.api.v1.endpoints.store_rotations import (
 from apps.api.v1.endpoints.tasks import sub_task_router, task_router
 from apps.api.v1.endpoints.users import router as users_router
 from apps.api.v1.endpoints.auth import router as auth_router
+from apps.api.v1.endpoints.activity_log import router as activity_log_router
 
 api_router = APIRouter()
 
 api_router.include_router(auth_router)
+api_router.include_router(activity_log_router)
 api_router.include_router(users_router)
 api_router.include_router(friends_router)
 api_router.include_router(habits_router)

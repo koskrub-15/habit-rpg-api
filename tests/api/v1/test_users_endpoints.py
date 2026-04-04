@@ -6,9 +6,6 @@ from apps.models.user import User
 from apps.schemas.user import UserCreate, UserUpdate
 
 
-
-
-
 @pytest_asyncio.fixture
 async def create_test_user_payload():
     """
@@ -46,9 +43,6 @@ async def create_update_user_payload():
     return UserUpdate(name="Updated User", email="updated@example.com")
 
 
-
-
-
 @pytest.mark.asyncio
 async def test_create_user(
     client: AsyncClient, db_session: AsyncSession, create_test_user_payload: UserCreate
@@ -62,7 +56,9 @@ async def test_create_user(
     - User is correctly created in the database.
     - Password is not returned in the response.
     """
-    response = await client.post("/api/v1/users/", json=create_test_user_payload.model_dump(mode='json'))
+    response = await client.post(
+        "/api/v1/users/", json=create_test_user_payload.model_dump(mode="json")
+    )
 
     assert response.status_code == 201
     response_data = response.json()
@@ -89,9 +85,13 @@ async def test_create_user_duplicate_email(
     - HTTP 400 Bad Request error is returned.
     - Error message contains information about email uniqueness.
     """
-    await client.post("/api/v1/users/", json=create_test_user_payload.model_dump(mode='json'))
+    await client.post(
+        "/api/v1/users/", json=create_test_user_payload.model_dump(mode="json")
+    )
 
-    response = await client.post("/api/v1/users/", json=create_test_user_payload.model_dump(mode='json'))
+    response = await client.post(
+        "/api/v1/users/", json=create_test_user_payload.model_dump(mode="json")
+    )
 
     assert response.status_code == 400
     response_data = response.json()
@@ -115,8 +115,12 @@ async def test_get_users(
     - The number of returned users matches the expectation.
     - User data matches the UserResponseShort schema.
     """
-    await client.post("/api/v1/users/", json=create_test_user_payload.model_dump(mode='json'))
-    await client.post("/api/v1/users/", json=create_another_test_user_payload.model_dump(mode='json'))
+    await client.post(
+        "/api/v1/users/", json=create_test_user_payload.model_dump(mode="json")
+    )
+    await client.post(
+        "/api/v1/users/", json=create_another_test_user_payload.model_dump(mode="json")
+    )
 
     response = await client.get("/api/v1/users/")
 
@@ -146,11 +150,16 @@ async def test_get_users_pagination(
     - Correct functioning of skip and limit parameters.
     """
     users_to_create = [
-        UserCreate(name=f"User {i}", email=f"user{i}@example.com", password="password", description="desc")
+        UserCreate(
+            name=f"User {i}",
+            email=f"user{i}@example.com",
+            password="password",
+            description="desc",
+        )
         for i in range(5)
     ]
     for user_payload in users_to_create:
-        await client.post("/api/v1/users/", json=user_payload.model_dump(mode='json'))
+        await client.post("/api/v1/users/", json=user_payload.model_dump(mode="json"))
 
     response = await client.get("/api/v1/users/?skip=1&limit=2&order_by=created_at")
     assert response.status_code == 200
@@ -173,8 +182,12 @@ async def test_get_users_filter_by_name(
     Verifies:
     - Correct functioning of the 'name' parameter for partial matching.
     """
-    await client.post("/api/v1/users/", json=create_test_user_payload.model_dump(mode='json'))
-    await client.post("/api/v1/users/", json=create_another_test_user_payload.model_dump(mode='json'))
+    await client.post(
+        "/api/v1/users/", json=create_test_user_payload.model_dump(mode="json")
+    )
+    await client.post(
+        "/api/v1/users/", json=create_another_test_user_payload.model_dump(mode="json")
+    )
 
     response = await client.get("/api/v1/users/?name=Test")
     assert response.status_code == 200
@@ -196,7 +209,7 @@ async def test_get_user_by_id(
     - HTTP 404 Not Found error is returned if the user is not found.
     """
     create_response = await client.post(
-        "/api/v1/users/", json=create_test_user_payload.model_dump(mode='json')
+        "/api/v1/users/", json=create_test_user_payload.model_dump(mode="json")
     )
     user_id = create_response.json()["id"]
 
@@ -231,12 +244,13 @@ async def test_update_user(
     - HTTP 404 Not Found error is returned if the user is not found.
     """
     create_response = await client.post(
-        "/api/v1/users/", json=create_test_user_payload.model_dump(mode='json')
+        "/api/v1/users/", json=create_test_user_payload.model_dump(mode="json")
     )
     user_id = create_response.json()["id"]
 
     response = await client.patch(
-        f"/api/v1/users/{user_id}", json=create_update_user_payload.model_dump(mode='json', exclude_unset=True)
+        f"/api/v1/users/{user_id}",
+        json=create_update_user_payload.model_dump(mode="json", exclude_unset=True),
     )
     assert response.status_code == 200
     response_data = response.json()
@@ -250,7 +264,8 @@ async def test_update_user(
     assert updated_user.email == create_update_user_payload.email
 
     response_not_found = await client.patch(
-        "/api/v1/users/99999", json=create_update_user_payload.model_dump(mode='json', exclude_unset=True)
+        "/api/v1/users/99999",
+        json=create_update_user_payload.model_dump(mode="json", exclude_unset=True),
     )
     assert response_not_found.status_code == 404
     assert "detail" in response_not_found.json()
@@ -269,7 +284,7 @@ async def test_delete_user(
     - HTTP 404 Not Found error is returned if the user is not found.
     """
     create_response = await client.post(
-        "/api/v1/users/", json=create_test_user_payload.model_dump(mode='json')
+        "/api/v1/users/", json=create_test_user_payload.model_dump(mode="json")
     )
     user_id = create_response.json()["id"]
 
@@ -299,7 +314,9 @@ async def test_get_user_count(
     assert response_initial.status_code == 200
     assert response_initial.json()["count"] == 0
 
-    await client.post("/api/v1/users/", json=create_test_user_payload.model_dump(mode='json'))
+    await client.post(
+        "/api/v1/users/", json=create_test_user_payload.model_dump(mode="json")
+    )
 
     response_after_create = await client.get("/api/v1/users/count")
     assert response_after_create.status_code == 200
@@ -318,7 +335,7 @@ async def test_check_user_exists(
     - Returns {'exists': False} for a non-existent user.
     """
     create_response = await client.post(
-        "/api/v1/users/", json=create_test_user_payload.model_dump(mode='json')
+        "/api/v1/users/", json=create_test_user_payload.model_dump(mode="json")
     )
     user_id = create_response.json()["id"]
 
@@ -347,8 +364,8 @@ async def test_bulk_create_users(
     - Limitation on the number of users for bulk creation.
     """
     users_payload = [
-        create_test_user_payload.model_dump(mode='json'),
-        create_another_test_user_payload.model_dump(mode='json'),
+        create_test_user_payload.model_dump(mode="json"),
+        create_another_test_user_payload.model_dump(mode="json"),
     ]
 
     response = await client.post("/api/v1/users/bulk", json=users_payload)
@@ -368,11 +385,14 @@ async def test_bulk_create_users(
             email=f"bulk{i}@example.com",
             password="password",
             description="desc",
-        ).model_dump(mode='json')
+        ).model_dump(mode="json")
         for i in range(101)
     ]
     response_limit_exceeded = await client.post(
         "/api/v1/users/bulk", json=large_users_payload
     )
     assert response_limit_exceeded.status_code == 400
-    assert "Cannot create more than 100 users at once" in response_limit_exceeded.json()["detail"]
+    assert (
+        "Cannot create more than 100 users at once"
+        in response_limit_exceeded.json()["detail"]
+    )

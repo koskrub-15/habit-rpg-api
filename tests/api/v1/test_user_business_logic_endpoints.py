@@ -7,8 +7,6 @@ from apps.models.habit import Habit, HabitStatus, HabitType
 from apps.models.item import Item, ItemType
 from apps.models.task import Size, Task, TaskStatus, TaskType
 from apps.models.user import EquippedItem, InventoryItem, SlotType, User
-from apps.schemas.habit import HabitCreate
-from apps.schemas.task import TaskCreate
 from apps.schemas.user import UserCreate
 
 # ---------------------------------------------------------------------------
@@ -596,7 +594,7 @@ async def test_reset_daily_tasks(
     test_task.status = TaskStatus.COMPLETED
     await db_session.commit()
 
-    response = await client.post(f"/api/v1/users/{test_user.id}/reset-daily-tasks")
+    response = await client.post(f"/api/v1/users/{test_user.id}/reset-daily")
     assert response.status_code == 200
 
     await db_session.refresh(test_daily_task)
@@ -889,7 +887,6 @@ async def test_unequip_item_moves_to_inventory(
     assert result is None  # removed from equipped
 
     from sqlalchemy import select
-    from sqlalchemy.ext.asyncio import AsyncSession
 
     from apps.models.user import InventoryItem as InvModel
 

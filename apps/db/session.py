@@ -5,7 +5,6 @@ from sqlalchemy.orm import sessionmaker
 from apps.db.base import mapper_registry
 
 from apps.core.config import settings
-import apps.models
 
 DATABASE_URL = settings.DATABASE_URL
 
@@ -24,6 +23,7 @@ AsyncSessionLocal = sessionmaker(
 )
 
 mapper_registry.configure()
+
 
 async def get_db() -> AsyncGenerator[AsyncSession, None]:
     """Dependency to get an async database session."""

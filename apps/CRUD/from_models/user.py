@@ -7,7 +7,9 @@ from sqlalchemy.ext.asyncio import AsyncSession
 from sqlalchemy.orm import selectinload
 
 from apps.CRUD.base import BaseCRUD
+from apps.CRUD.from_models.activity_log import activity_log_crud
 from apps.models.achievement import Achievement
+from apps.models.activity_log import ActivityType
 from apps.models.habit import Habit, HabitStatus, HabitType
 from apps.models.item import Item, ItemType
 from apps.models.store_rotation import ShopItem
@@ -20,6 +22,7 @@ from apps.models.user import (
     SlotType,
     User,
 )
+from apps.schemas.activity_log import ActivityLogCreate
 from apps.schemas.user import CompleteActivityResponse, UserCreate, UserUpdate
 
 
@@ -80,6 +83,17 @@ class CRUDUser(BaseCRUD[User, UserCreate, UserUpdate]):
 
         await self.add_to_inventory(db, user_id, shop_item.item_id)
 
+        # Log item purchase
+        await activity_log_crud.create(
+            db,
+            obj_in=ActivityLogCreate(
+                user_id=user_id,
+                activity_type=ActivityType.ITEM_PURCHASED,
+                description=f"Purchased item: {shop_item.item.name if shop_item.item else 'Unknown'}",
+                item_id=shop_item.item_id,
+            ),
+        )
+
         await db.commit()
         return {"message": "Purchase successful", "new_gold": user.gold}
 
@@ -100,16 +114,22 @@ class CRUDUser(BaseCRUD[User, UserCreate, UserUpdate]):
         result = await db.execute(
             select(Friendship).where(
                 or_(
-                    (Friendship.user_id == user_id) & (Friendship.friend_id == friend_id),
-                    (Friendship.user_id == friend_id) & (Friendship.friend_id == user_id),
+                    (Friendship.user_id == user_id)
+                    & (Friendship.friend_id == friend_id),
+                    (Friendship.user_id == friend_id)
+                    & (Friendship.friend_id == user_id),
                 )
             )
         )
         existing = result.scalar_one_or_none()
         if existing:
-            raise HTTPException(status_code=409, detail="Friendship already exists or pending")
+            raise HTTPException(
+                status_code=409, detail="Friendship already exists or pending"
+            )
 
-        friendship = Friendship(user_id=user_id, friend_id=friend_id, status=FriendshipStatus.PENDING) # type: ignore
+        friendship = Friendship(
+            user_id=user_id, friend_id=friend_id, status=FriendshipStatus.PENDING
+        )  # type: ignore
         db.add(friendship)
         await db.commit()
         await db.refresh(friendship)
@@ -123,7 +143,7 @@ class CRUDUser(BaseCRUD[User, UserCreate, UserUpdate]):
             select(Friendship).where(
                 Friendship.id == request_id,
                 Friendship.friend_id == user_id,
-                Friendship.status == FriendshipStatus.PENDING
+                Friendship.status == FriendshipStatus.PENDING,
             )
         )
         friendship = result.scalar_one_or_none()
@@ -143,7 +163,7 @@ class CRUDUser(BaseCRUD[User, UserCreate, UserUpdate]):
             select(Friendship).where(
                 Friendship.id == request_id,
                 Friendship.friend_id == user_id,
-                Friendship.status == FriendshipStatus.PENDING
+                Friendship.status == FriendshipStatus.PENDING,
             )
         )
         friendship = result.scalar_one_or_none()
@@ -159,32 +179,36 @@ class CRUDUser(BaseCRUD[User, UserCreate, UserUpdate]):
         """Get list of friends (ACCEPTED status)."""
         result = await db.execute(
             select(Friendship).where(
-                ((Friendship.user_id == user_id) | (Friendship.friend_id == user_id)) &
-                (Friendship.status == FriendshipStatus.ACCEPTED)
+                ((Friendship.user_id == user_id) | (Friendship.friend_id == user_id))
+                & (Friendship.status == FriendshipStatus.ACCEPTED)
             )
         )
         friendships = result.scalars().all()
-        
+
         friend_ids = []
         for f in friendships:
             if f.user_id == user_id:
                 friend_ids.append(f.friend_id)
             else:
                 friend_ids.append(f.user_id)
-        
+
         if not friend_ids:
             return []
-            
+
         result = await db.execute(select(User).where(User.id.in_(friend_ids)))
         return list(result.scalars().all())
 
-    async def remove_friend(self, db: AsyncSession, user_id: int, friend_id: int) -> None:
+    async def remove_friend(
+        self, db: AsyncSession, user_id: int, friend_id: int
+    ) -> None:
         """Remove a friend."""
         result = await db.execute(
             select(Friendship).where(
                 or_(
-                    (Friendship.user_id == user_id) & (Friendship.friend_id == friend_id),
-                    (Friendship.user_id == friend_id) & (Friendship.friend_id == user_id),
+                    (Friendship.user_id == user_id)
+                    & (Friendship.friend_id == friend_id),
+                    (Friendship.user_id == friend_id)
+                    & (Friendship.friend_id == user_id),
                 )
             )
         )
@@ -196,54 +220,90 @@ class CRUDUser(BaseCRUD[User, UserCreate, UserUpdate]):
         await db.commit()
 
     # Achievements methods
-    async def grant_achievement(self, db: AsyncSession, user_id: int, achievement_id: int) -> Achievement:
+    async def grant_achievement(
+        self, db: AsyncSession, user_id: int, achievement_id: int
+    ) -> Achievement:
         """Grant an achievement to a user manually."""
-        user = await self.get(db, user_id, raise_not_found=True, relationships=["achievements"])
+        user = await self.get(
+            db, user_id, raise_not_found=True, relationships=["achievements"]
+        )
         if not user:
             raise HTTPException(status_code=404, detail="User not found")
-            
-        result = await db.execute(select(Achievement).where(Achievement.id == achievement_id))
+
+        result = await db.execute(
+            select(Achievement).where(Achievement.id == achievement_id)
+        )
         achievement = result.scalar_one_or_none()
         if not achievement:
             raise HTTPException(status_code=404, detail="Achievement not found")
-            
+
         if achievement in user.achievements:
-            raise HTTPException(status_code=409, detail="User already has this achievement")
-            
+            raise HTTPException(
+                status_code=409, detail="User already has this achievement"
+            )
+
         user.achievements.append(achievement)
+
+        # Log achievement unlock
+        await activity_log_crud.create(
+            db,
+            obj_in=ActivityLogCreate(
+                user_id=user_id,
+                activity_type=ActivityType.ACHIEVEMENT_UNLOCKED,
+                description=f"Unlocked achievement: {achievement.id}",
+                achievement_id=achievement.id,
+            ),
+        )
+
         await db.commit()
         await db.refresh(user)
         return achievement
 
-    async def check_and_award_achievements(self, db: AsyncSession, user_id: int) -> List[Achievement]:
+    async def check_and_award_achievements(
+        self, db: AsyncSession, user_id: int
+    ) -> List[Achievement]:
         """Check all achievements and award those where conditions are met."""
-        user = await self.get(db, user_id, relationships=["achievements", "tasks", "habits"])
+        user = await self.get(
+            db, user_id, relationships=["achievements", "tasks", "habits"]
+        )
         if not user:
             return []
-            
+
         result = await db.execute(select(Achievement))
         all_achievements = result.scalars().all()
-        
+
         awarded = []
         for ach in all_achievements:
             if ach in user.achievements:
                 continue
-            
+
             condition_met = False
             if ach.condition_type == "tasks_completed":
-                completed_count = sum(1 for t in user.tasks if t.status == TaskStatus.COMPLETED)
+                completed_count = sum(
+                    1 for t in user.tasks if t.status == TaskStatus.COMPLETED
+                )
                 if completed_count >= ach.condition_value:
                     condition_met = True
-            
+
             elif ach.condition_type == "habit_streak":
                 max_streak = max((h.streak for h in user.habits), default=0)
                 if max_streak >= ach.condition_value:
                     condition_met = True
-            
+
             if condition_met:
                 user.achievements.append(ach)
                 awarded.append(ach)
-        
+                # Log achievement unlock
+                await activity_log_crud.create(
+                    db,
+                    obj_in=ActivityLogCreate(
+                        user_id=user_id,
+                        activity_type=ActivityType.ACHIEVEMENT_UNLOCKED,
+                        description=f"Automatically unlocked achievement: {ach.id}",
+                        achievement_id=ach.id,
+                    ),
+                )
+
         if awarded:
             await db.commit()
         return awarded
@@ -384,6 +444,8 @@ class CRUDUser(BaseCRUD[User, UserCreate, UserUpdate]):
                 status_code=status.HTTP_404_NOT_FOUND, detail="User not found"
             )
 
+        log_obj_in: Optional[ActivityLogCreate] = None
+
         if activity_type == "task":
             result = await db.execute(
                 select(Task).where(Task.id == activity_id, Task.user_id == user_id)
@@ -394,6 +456,12 @@ class CRUDUser(BaseCRUD[User, UserCreate, UserUpdate]):
                     status_code=status.HTTP_404_NOT_FOUND, detail="Task not found"
                 )
             reward = self._apply_task_reward(user, task)
+            log_obj_in = ActivityLogCreate(
+                user_id=user_id,
+                activity_type=ActivityType.TASK_COMPLETED,
+                description=f"Completed task: {task.name}",
+                task_id=task.id,
+            )
 
         elif activity_type == "habit":
             result = await db.execute(
@@ -405,6 +473,12 @@ class CRUDUser(BaseCRUD[User, UserCreate, UserUpdate]):
                     status_code=status.HTTP_404_NOT_FOUND, detail="Habit not found"
                 )
             reward = self._apply_habit_reward(user, habit, performed)
+            log_obj_in = ActivityLogCreate(
+                user_id=user_id,
+                activity_type=ActivityType.HABIT_COMPLETED,
+                description=f"Performed habit: {habit.name}",
+                habit_id=habit.id,
+            )
 
         else:
             raise HTTPException(
@@ -412,8 +486,12 @@ class CRUDUser(BaseCRUD[User, UserCreate, UserUpdate]):
                 detail="activity_type must be 'task' or 'habit'",
             )
 
+        # Log the activity
+        if log_obj_in:
+            await activity_log_crud.create(db, obj_in=log_obj_in)
+
         await db.commit()
-        
+
         # Trigger achievement check after activity completion
         await self.check_and_award_achievements(db, user_id)
 
@@ -595,9 +673,7 @@ class CRUDUser(BaseCRUD[User, UserCreate, UserUpdate]):
         else:
             await db.delete(inventory_item)
 
-        new_equipped_item = EquippedItem(
-            user_id=user_id, item_id=item_id, slot=slot
-        )  # type: ignore
+        new_equipped_item = EquippedItem(user_id=user_id, item_id=item_id, slot=slot)  # type: ignore
         db.add(new_equipped_item)
 
         await db.commit()

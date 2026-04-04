@@ -15,9 +15,12 @@ async def create_test_user_for_notifications(db_session: AsyncSession):
     Notifications are linked to users.
     """
     user_data = UserCreate(
-        name="Notification User", email="notify@example.com", password="notifypassword", description="User for notifications"
+        name="Notification User",
+        email="notify@example.com",
+        password="notifypassword",
+        description="User for notifications",
     )
-    user = User(**user_data.model_dump(mode='json'))
+    user = User(**user_data.model_dump(mode="json"))
     db_session.add(user)
     await db_session.commit()
     return user
@@ -38,7 +41,9 @@ async def create_test_notification_payload(create_test_user_for_notifications: U
 
 
 @pytest_asyncio.fixture
-async def create_another_test_notification_payload(create_test_user_for_notifications: User):
+async def create_another_test_notification_payload(
+    create_test_user_for_notifications: User,
+):
     """
     Fixture providing data for creating a second notification.
     """
@@ -56,7 +61,9 @@ async def create_update_notification_payload():
     """
     Fixture providing data for updating a notification.
     """
-    return NotificationUpdate(name="Updated Welcome", message="Updated welcome message.")
+    return NotificationUpdate(
+        name="Updated Welcome", message="Updated welcome message."
+    )
 
 
 @pytest.mark.asyncio
@@ -67,7 +74,10 @@ async def test_create_notification(
     create_test_notification_payload: NotificationCreate,
 ):
     """Tests the POST /api/v1/notifications/ endpoint for creating a new notification."""
-    response = await client.post("/api/v1/notifications/", json=create_test_notification_payload.model_dump(mode='json'))
+    response = await client.post(
+        "/api/v1/notifications/",
+        json=create_test_notification_payload.model_dump(mode="json"),
+    )
 
     assert response.status_code == 201
     response_data = response.json()
@@ -75,7 +85,10 @@ async def test_create_notification(
     assert "id" in response_data
     assert response_data["name"] == create_test_notification_payload.name
     assert response_data["user_id"] == create_test_user_for_notifications.id
-    assert response_data["notification_type"] == create_test_notification_payload.notification_type.value
+    assert (
+        response_data["notification_type"]
+        == create_test_notification_payload.notification_type.value
+    )
     assert response_data["message"] == create_test_notification_payload.message
 
     created_notification = await db_session.get(Notification, response_data["id"])
@@ -93,8 +106,14 @@ async def test_get_notifications(
     create_another_test_notification_payload: NotificationCreate,
 ):
     """Tests the GET /api/v1/notifications/ endpoint for retrieving a list of notifications."""
-    await client.post("/api/v1/notifications/", json=create_test_notification_payload.model_dump(mode='json'))
-    await client.post("/api/v1/notifications/", json=create_another_test_notification_payload.model_dump(mode='json'))
+    await client.post(
+        "/api/v1/notifications/",
+        json=create_test_notification_payload.model_dump(mode="json"),
+    )
+    await client.post(
+        "/api/v1/notifications/",
+        json=create_another_test_notification_payload.model_dump(mode="json"),
+    )
 
     response = await client.get("/api/v1/notifications/")
 
@@ -124,9 +143,13 @@ async def test_get_notifications_pagination(
             notification_type=NotificationType.SYSTEM,
             message=f"Message {i}",
         )
-        await client.post("/api/v1/notifications/", json=notification_payload.model_dump(mode='json'))
+        await client.post(
+            "/api/v1/notifications/", json=notification_payload.model_dump(mode="json")
+        )
 
-    response = await client.get("/api/v1/notifications/?skip=1&limit=2&order_by=created_at")
+    response = await client.get(
+        "/api/v1/notifications/?skip=1&limit=2&order_by=created_at"
+    )
     assert response.status_code == 200
     response_data = response.json()
     assert len(response_data) == 2
@@ -142,8 +165,14 @@ async def test_get_notifications_filter_by_name(
     create_another_test_notification_payload: NotificationCreate,
 ):
     """Tests name filtering for the GET /api/v1/notifications/ endpoint."""
-    await client.post("/api/v1/notifications/", json=create_test_notification_payload.model_dump(mode='json'))
-    await client.post("/api/v1/notifications/", json=create_another_test_notification_payload.model_dump(mode='json'))
+    await client.post(
+        "/api/v1/notifications/",
+        json=create_test_notification_payload.model_dump(mode="json"),
+    )
+    await client.post(
+        "/api/v1/notifications/",
+        json=create_another_test_notification_payload.model_dump(mode="json"),
+    )
 
     response = await client.get("/api/v1/notifications/?name=Welcome")
     assert response.status_code == 200
@@ -161,7 +190,8 @@ async def test_get_notification_by_id(
 ):
     """Tests the GET /api/v1/notifications/{id} endpoint for retrieving a notification by ID."""
     create_response = await client.post(
-        "/api/v1/notifications/", json=create_test_notification_payload.model_dump(mode='json')
+        "/api/v1/notifications/",
+        json=create_test_notification_payload.model_dump(mode="json"),
     )
     notification_id = create_response.json()["id"]
 
@@ -189,12 +219,16 @@ async def test_update_notification(
 ):
     """Tests the PATCH /api/v1/notifications/{id} endpoint for updating an existing notification."""
     create_response = await client.post(
-        "/api/v1/notifications/", json=create_test_notification_payload.model_dump(mode='json')
+        "/api/v1/notifications/",
+        json=create_test_notification_payload.model_dump(mode="json"),
     )
     notification_id = create_response.json()["id"]
 
     response = await client.patch(
-        f"/api/v1/notifications/{notification_id}", json=create_update_notification_payload.model_dump(mode='json', exclude_unset=True)
+        f"/api/v1/notifications/{notification_id}",
+        json=create_update_notification_payload.model_dump(
+            mode="json", exclude_unset=True
+        ),
     )
     assert response.status_code == 200
     response_data = response.json()
@@ -208,7 +242,10 @@ async def test_update_notification(
     assert updated_notification.message == create_update_notification_payload.message
 
     response_not_found = await client.patch(
-        "/api/v1/notifications/99999", json=create_update_notification_payload.model_dump(mode='json', exclude_unset=True)
+        "/api/v1/notifications/99999",
+        json=create_update_notification_payload.model_dump(
+            mode="json", exclude_unset=True
+        ),
     )
     assert response_not_found.status_code == 404
     assert "detail" in response_not_found.json()
@@ -223,7 +260,8 @@ async def test_delete_notification(
 ):
     """Tests the DELETE /api/v1/notifications/{id} endpoint for deleting a notification."""
     create_response = await client.post(
-        "/api/v1/notifications/", json=create_test_notification_payload.model_dump(mode='json')
+        "/api/v1/notifications/",
+        json=create_test_notification_payload.model_dump(mode="json"),
     )
     notification_id = create_response.json()["id"]
 
@@ -250,7 +288,10 @@ async def test_get_notification_count(
     assert response_initial.status_code == 200
     assert response_initial.json()["count"] == 0
 
-    await client.post("/api/v1/notifications/", json=create_test_notification_payload.model_dump(mode='json'))
+    await client.post(
+        "/api/v1/notifications/",
+        json=create_test_notification_payload.model_dump(mode="json"),
+    )
 
     response_after_create = await client.get("/api/v1/notifications/count")
     assert response_after_create.status_code == 200
@@ -266,11 +307,14 @@ async def test_check_notification_exists(
 ):
     """Tests the GET /api/v1/notifications/{id}/exists endpoint for checking notification existence."""
     create_response = await client.post(
-        "/api/v1/notifications/", json=create_test_notification_payload.model_dump(mode='json')
+        "/api/v1/notifications/",
+        json=create_test_notification_payload.model_dump(mode="json"),
     )
     notification_id = create_response.json()["id"]
 
-    response_exists = await client.get(f"/api/v1/notifications/{notification_id}/exists")
+    response_exists = await client.get(
+        f"/api/v1/notifications/{notification_id}/exists"
+    )
     assert response_exists.status_code == 200
     assert response_exists.json()["exists"] is True
 
@@ -291,20 +335,24 @@ async def test_bulk_create_notifications(
     user = create_test_user_for_notifications
 
     notifications_payload = [
-        create_test_notification_payload.model_dump(mode='json'),
-        create_another_test_notification_payload.model_dump(mode='json'),
+        create_test_notification_payload.model_dump(mode="json"),
+        create_another_test_notification_payload.model_dump(mode="json"),
     ]
     for payload in notifications_payload:
         payload["user_id"] = user.id
 
-    response = await client.post("/api/v1/notifications/bulk", json=notifications_payload)
+    response = await client.post(
+        "/api/v1/notifications/bulk", json=notifications_payload
+    )
     assert response.status_code == 201
     response_data = response.json()
     assert isinstance(response_data, list)
     assert len(response_data) == 2
 
     for notification_data in response_data:
-        created_notification = await db_session.get(Notification, notification_data["id"])
+        created_notification = await db_session.get(
+            Notification, notification_data["id"]
+        )
         assert created_notification is not None
         assert created_notification.name == notification_data["name"]
 
@@ -315,11 +363,14 @@ async def test_bulk_create_notifications(
             user_id=user.id,
             notification_type=NotificationType.SYSTEM,
             message=f"Message {i}",
-        ).model_dump(mode='json')
+        ).model_dump(mode="json")
         for i in range(101)
     ]
     response_limit_exceeded = await client.post(
         "/api/v1/notifications/bulk", json=large_notifications_payload
     )
     assert response_limit_exceeded.status_code == 400
-    assert "Cannot create more than 100 notifications at once" in response_limit_exceeded.json()["detail"]
+    assert (
+        "Cannot create more than 100 notifications at once"
+        in response_limit_exceeded.json()["detail"]
+    )

@@ -8,9 +8,6 @@ from apps.schemas.task import TaskCreate, TaskUpdate
 from apps.schemas.user import UserCreate
 
 
-
-
-
 @pytest_asyncio.fixture
 async def create_test_user_for_tasks(db_session: AsyncSession):
     """
@@ -18,9 +15,12 @@ async def create_test_user_for_tasks(db_session: AsyncSession):
     Tasks are linked to users.
     """
     user_data = UserCreate(
-        name="Task User", email="task@example.com", password="taskpassword", description="User for tasks"
+        name="Task User",
+        email="task@example.com",
+        password="taskpassword",
+        description="User for tasks",
     )
-    user = User(**user_data.model_dump(mode='json'))
+    user = User(**user_data.model_dump(mode="json"))
     db_session.add(user)
     await db_session.commit()
     return user
@@ -62,9 +62,6 @@ async def create_update_task_payload():
     return TaskUpdate(name="Refactor Code", status=TaskStatus.IN_PROGRESS)
 
 
-
-
-
 @pytest.mark.asyncio
 async def test_create_task(
     client: AsyncClient,
@@ -73,7 +70,9 @@ async def test_create_task(
     create_test_task_payload: TaskCreate,
 ):
     """Tests the POST /api/v1/tasks/ endpoint for creating a new task."""
-    response = await client.post("/api/v1/tasks/", json=create_test_task_payload.model_dump(mode='json'))
+    response = await client.post(
+        "/api/v1/tasks/", json=create_test_task_payload.model_dump(mode="json")
+    )
 
     assert response.status_code == 201
     response_data = response.json()
@@ -99,8 +98,12 @@ async def test_get_tasks(
     create_another_test_task_payload: TaskCreate,
 ):
     """Tests the GET /api/v1/tasks/ endpoint for retrieving a list of tasks."""
-    await client.post("/api/v1/tasks/", json=create_test_task_payload.model_dump(mode='json'))
-    await client.post("/api/v1/tasks/", json=create_another_test_task_payload.model_dump(mode='json'))
+    await client.post(
+        "/api/v1/tasks/", json=create_test_task_payload.model_dump(mode="json")
+    )
+    await client.post(
+        "/api/v1/tasks/", json=create_another_test_task_payload.model_dump(mode="json")
+    )
 
     response = await client.get("/api/v1/tasks/")
 
@@ -130,7 +133,7 @@ async def test_get_tasks_pagination(
             task_type=TaskType.REGULAR,
             task_size=Size.SMALL,
         )
-        await client.post("/api/v1/tasks/", json=task_payload.model_dump(mode='json'))
+        await client.post("/api/v1/tasks/", json=task_payload.model_dump(mode="json"))
 
     response = await client.get("/api/v1/tasks/?skip=1&limit=2&order_by=created_at")
     assert response.status_code == 200
@@ -148,8 +151,12 @@ async def test_get_tasks_filter_by_name(
     create_another_test_task_payload: TaskCreate,
 ):
     """Tests name filtering for the GET /api/v1/tasks/ endpoint."""
-    await client.post("/api/v1/tasks/", json=create_test_task_payload.model_dump(mode='json'))
-    await client.post("/api/v1/tasks/", json=create_another_test_task_payload.model_dump(mode='json'))
+    await client.post(
+        "/api/v1/tasks/", json=create_test_task_payload.model_dump(mode="json")
+    )
+    await client.post(
+        "/api/v1/tasks/", json=create_another_test_task_payload.model_dump(mode="json")
+    )
 
     response = await client.get("/api/v1/tasks/?name=Project")
     assert response.status_code == 200
@@ -167,7 +174,7 @@ async def test_get_task_by_id(
 ):
     """Tests the GET /api/v1/tasks/{id} endpoint for retrieving a task by ID."""
     create_response = await client.post(
-        "/api/v1/tasks/", json=create_test_task_payload.model_dump(mode='json')
+        "/api/v1/tasks/", json=create_test_task_payload.model_dump(mode="json")
     )
     task_id = create_response.json()["id"]
 
@@ -195,12 +202,13 @@ async def test_update_task(
 ):
     """Tests the PATCH /api/v1/tasks/{id} endpoint for updating an existing task."""
     create_response = await client.post(
-        "/api/v1/tasks/", json=create_test_task_payload.model_dump(mode='json')
+        "/api/v1/tasks/", json=create_test_task_payload.model_dump(mode="json")
     )
     task_id = create_response.json()["id"]
 
     response = await client.patch(
-        f"/api/v1/tasks/{task_id}", json=create_update_task_payload.model_dump(mode='json', exclude_unset=True)
+        f"/api/v1/tasks/{task_id}",
+        json=create_update_task_payload.model_dump(mode="json", exclude_unset=True),
     )
     assert response.status_code == 200
     response_data = response.json()
@@ -214,7 +222,8 @@ async def test_update_task(
     assert updated_task.status == create_update_task_payload.status
 
     response_not_found = await client.patch(
-        "/api/v1/tasks/99999", json=create_update_task_payload.model_dump(mode='json', exclude_unset=True)
+        "/api/v1/tasks/99999",
+        json=create_update_task_payload.model_dump(mode="json", exclude_unset=True),
     )
     assert response_not_found.status_code == 404
     assert "detail" in response_not_found.json()
@@ -229,7 +238,7 @@ async def test_delete_task(
 ):
     """Tests the DELETE /api/v1/tasks/{id} endpoint for deleting a task."""
     create_response = await client.post(
-        "/api/v1/tasks/", json=create_test_task_payload.model_dump(mode='json')
+        "/api/v1/tasks/", json=create_test_task_payload.model_dump(mode="json")
     )
     task_id = create_response.json()["id"]
 
@@ -256,7 +265,9 @@ async def test_get_task_count(
     assert response_initial.status_code == 200
     assert response_initial.json()["count"] == 0
 
-    await client.post("/api/v1/tasks/", json=create_test_task_payload.model_dump(mode='json'))
+    await client.post(
+        "/api/v1/tasks/", json=create_test_task_payload.model_dump(mode="json")
+    )
 
     response_after_create = await client.get("/api/v1/tasks/count")
     assert response_after_create.status_code == 200
@@ -272,7 +283,7 @@ async def test_check_task_exists(
 ):
     """Tests the GET /api/v1/tasks/{id}/exists endpoint for checking task existence."""
     create_response = await client.post(
-        "/api/v1/tasks/", json=create_test_task_payload.model_dump(mode='json')
+        "/api/v1/tasks/", json=create_test_task_payload.model_dump(mode="json")
     )
     task_id = create_response.json()["id"]
 
@@ -297,8 +308,8 @@ async def test_bulk_create_tasks(
     user = create_test_user_for_tasks
 
     tasks_payload = [
-        create_test_task_payload.model_dump(mode='json'),
-        create_another_test_task_payload.model_dump(mode='json'),
+        create_test_task_payload.model_dump(mode="json"),
+        create_another_test_task_payload.model_dump(mode="json"),
     ]
     for payload in tasks_payload:
         payload["user_id"] = user.id
@@ -314,7 +325,6 @@ async def test_bulk_create_tasks(
         assert created_task is not None
         assert created_task.name == task_data["name"]
 
-
     large_tasks_payload = [
         TaskCreate(
             name=f"Bulk Task {i}",
@@ -322,11 +332,14 @@ async def test_bulk_create_tasks(
             user_id=user.id,
             task_type=TaskType.REGULAR,
             task_size=Size.SMALL,
-        ).model_dump(mode='json')
+        ).model_dump(mode="json")
         for i in range(101)
     ]
     response_limit_exceeded = await client.post(
         "/api/v1/tasks/bulk", json=large_tasks_payload
     )
     assert response_limit_exceeded.status_code == 400
-    assert "Cannot create more than 100 tasks at once" in response_limit_exceeded.json()["detail"]
+    assert (
+        "Cannot create more than 100 tasks at once"
+        in response_limit_exceeded.json()["detail"]
+    )

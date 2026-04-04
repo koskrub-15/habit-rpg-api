@@ -8,9 +8,6 @@ from apps.schemas.task import SubTaskCreate, SubTaskUpdate, TaskCreate
 from apps.schemas.user import UserCreate
 
 
-
-
-
 @pytest_asyncio.fixture
 async def create_test_user_for_subtasks(db_session: AsyncSession):
     """
@@ -18,16 +15,21 @@ async def create_test_user_for_subtasks(db_session: AsyncSession):
     Subtasks are linked to tasks, which are linked to users.
     """
     user_data = UserCreate(
-        name="SubTask User", email="subtask@example.com", password="subtaskpassword", description="User for subtasks"
+        name="SubTask User",
+        email="subtask@example.com",
+        password="subtaskpassword",
+        description="User for subtasks",
     )
-    user = User(**user_data.model_dump(mode='json'))
+    user = User(**user_data.model_dump(mode="json"))
     db_session.add(user)
     await db_session.commit()
     return user
 
 
 @pytest_asyncio.fixture
-async def create_test_task_for_subtasks(db_session: AsyncSession, create_test_user_for_subtasks: User):
+async def create_test_task_for_subtasks(
+    db_session: AsyncSession, create_test_user_for_subtasks: User
+):
     """
     Fixture to create a test task for subtask-related tests.
     """
@@ -37,7 +39,7 @@ async def create_test_task_for_subtasks(db_session: AsyncSession, create_test_us
         user_id=create_test_user_for_subtasks.id,
         task_size=Size.MEDIUM,
     )
-    task = Task(**task_data.model_dump(mode='json'))
+    task = Task(**task_data.model_dump(mode="json"))
     db_session.add(task)
     await db_session.commit()
     return task
@@ -75,9 +77,6 @@ async def create_update_sub_task_payload():
     return SubTaskUpdate(name="Updated Subtask 1", status=TaskStatus.COMPLETED)
 
 
-
-
-
 @pytest.mark.asyncio
 async def test_create_sub_task(
     client: AsyncClient,
@@ -86,7 +85,9 @@ async def test_create_sub_task(
     create_test_sub_task_payload: SubTaskCreate,
 ):
     """Tests the POST /api/v1/sub_tasks/ endpoint for creating a new subtask."""
-    response = await client.post("/api/v1/sub_tasks/", json=create_test_sub_task_payload.model_dump(mode='json'))
+    response = await client.post(
+        "/api/v1/sub_tasks/", json=create_test_sub_task_payload.model_dump(mode="json")
+    )
 
     assert response.status_code == 201
     response_data = response.json()
@@ -110,8 +111,13 @@ async def test_get_sub_tasks(
     create_another_test_sub_task_payload: SubTaskCreate,
 ):
     """Tests the GET /api/v1/sub_tasks/ endpoint for retrieving a list of subtasks."""
-    await client.post("/api/v1/sub_tasks/", json=create_test_sub_task_payload.model_dump(mode='json'))
-    await client.post("/api/v1/sub_tasks/", json=create_another_test_sub_task_payload.model_dump(mode='json'))
+    await client.post(
+        "/api/v1/sub_tasks/", json=create_test_sub_task_payload.model_dump(mode="json")
+    )
+    await client.post(
+        "/api/v1/sub_tasks/",
+        json=create_another_test_sub_task_payload.model_dump(mode="json"),
+    )
 
     response = await client.get("/api/v1/sub_tasks/")
 
@@ -139,7 +145,9 @@ async def test_get_sub_tasks_pagination(
             description=f"Description {i}",
             task_id=task_id,
         )
-        await client.post("/api/v1/sub_tasks/", json=sub_task_payload.model_dump(mode='json'))
+        await client.post(
+            "/api/v1/sub_tasks/", json=sub_task_payload.model_dump(mode="json")
+        )
 
     response = await client.get("/api/v1/sub_tasks/?skip=1&limit=2&order_by=created_at")
     assert response.status_code == 200
@@ -157,8 +165,13 @@ async def test_get_sub_tasks_filter_by_name(
     create_another_test_sub_task_payload: SubTaskCreate,
 ):
     """Tests name filtering for the GET /api/v1/sub_tasks/ endpoint."""
-    await client.post("/api/v1/sub_tasks/", json=create_test_sub_task_payload.model_dump(mode='json'))
-    await client.post("/api/v1/sub_tasks/", json=create_another_test_sub_task_payload.model_dump(mode='json'))
+    await client.post(
+        "/api/v1/sub_tasks/", json=create_test_sub_task_payload.model_dump(mode="json")
+    )
+    await client.post(
+        "/api/v1/sub_tasks/",
+        json=create_another_test_sub_task_payload.model_dump(mode="json"),
+    )
 
     response = await client.get("/api/v1/sub_tasks/?name=Subtask 1")
     assert response.status_code == 200
@@ -176,7 +189,7 @@ async def test_get_sub_task_by_id(
 ):
     """Tests the GET /api/v1/sub_tasks/{id} endpoint for retrieving a subtask by ID."""
     create_response = await client.post(
-        "/api/v1/sub_tasks/", json=create_test_sub_task_payload.model_dump(mode='json')
+        "/api/v1/sub_tasks/", json=create_test_sub_task_payload.model_dump(mode="json")
     )
     sub_task_id = create_response.json()["id"]
 
@@ -204,12 +217,13 @@ async def test_update_sub_task(
 ):
     """Tests the PATCH /api/v1/sub_tasks/{id} endpoint for updating an existing subtask."""
     create_response = await client.post(
-        "/api/v1/sub_tasks/", json=create_test_sub_task_payload.model_dump(mode='json')
+        "/api/v1/sub_tasks/", json=create_test_sub_task_payload.model_dump(mode="json")
     )
     sub_task_id = create_response.json()["id"]
 
     response = await client.patch(
-        f"/api/v1/sub_tasks/{sub_task_id}", json=create_update_sub_task_payload.model_dump(mode='json', exclude_unset=True)
+        f"/api/v1/sub_tasks/{sub_task_id}",
+        json=create_update_sub_task_payload.model_dump(mode="json", exclude_unset=True),
     )
     assert response.status_code == 200
     response_data = response.json()
@@ -223,7 +237,8 @@ async def test_update_sub_task(
     assert updated_sub_task.status == create_update_sub_task_payload.status
 
     response_not_found = await client.patch(
-        "/api/v1/sub_tasks/99999", json=create_update_sub_task_payload.model_dump(mode='json', exclude_unset=True)
+        "/api/v1/sub_tasks/99999",
+        json=create_update_sub_task_payload.model_dump(mode="json", exclude_unset=True),
     )
     assert response_not_found.status_code == 404
     assert "detail" in response_not_found.json()
@@ -238,7 +253,7 @@ async def test_delete_sub_task(
 ):
     """Tests the DELETE /api/v1/sub_tasks/{id} endpoint for deleting a subtask."""
     create_response = await client.post(
-        "/api/v1/sub_tasks/", json=create_test_sub_task_payload.model_dump(mode='json')
+        "/api/v1/sub_tasks/", json=create_test_sub_task_payload.model_dump(mode="json")
     )
     sub_task_id = create_response.json()["id"]
 
@@ -265,7 +280,9 @@ async def test_get_sub_task_count(
     assert response_initial.status_code == 200
     assert response_initial.json()["count"] == 0
 
-    await client.post("/api/v1/sub_tasks/", json=create_test_sub_task_payload.model_dump(mode='json'))
+    await client.post(
+        "/api/v1/sub_tasks/", json=create_test_sub_task_payload.model_dump(mode="json")
+    )
 
     response_after_create = await client.get("/api/v1/sub_tasks/count")
     assert response_after_create.status_code == 200
@@ -281,7 +298,7 @@ async def test_check_sub_task_exists(
 ):
     """Tests the GET /api/v1/sub_tasks/{id}/exists endpoint for checking subtask existence."""
     create_response = await client.post(
-        "/api/v1/sub_tasks/", json=create_test_sub_task_payload.model_dump(mode='json')
+        "/api/v1/sub_tasks/", json=create_test_sub_task_payload.model_dump(mode="json")
     )
     sub_task_id = create_response.json()["id"]
 
@@ -306,8 +323,8 @@ async def test_bulk_create_sub_tasks(
     task = create_test_task_for_subtasks
 
     sub_tasks_payload = [
-        create_test_sub_task_payload.model_dump(mode='json'),
-        create_another_test_sub_task_payload.model_dump(mode='json'),
+        create_test_sub_task_payload.model_dump(mode="json"),
+        create_another_test_sub_task_payload.model_dump(mode="json"),
     ]
     for payload in sub_tasks_payload:
         payload["task_id"] = task.id
@@ -323,17 +340,19 @@ async def test_bulk_create_sub_tasks(
         assert created_sub_task is not None
         assert created_sub_task.name == sub_task_data["name"]
 
-
     large_sub_tasks_payload = [
         SubTaskCreate(
             name=f"Bulk Subtask {i}",
             description=f"Description {i}",
             task_id=task.id,
-        ).model_dump(mode='json')
+        ).model_dump(mode="json")
         for i in range(101)
     ]
     response_limit_exceeded = await client.post(
         "/api/v1/sub_tasks/bulk", json=large_sub_tasks_payload
     )
     assert response_limit_exceeded.status_code == 400
-    assert "Cannot create more than 100 sub_tasks at once" in response_limit_exceeded.json()["detail"]
+    assert (
+        "Cannot create more than 100 sub_tasks at once"
+        in response_limit_exceeded.json()["detail"]
+    )

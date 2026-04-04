@@ -1,10 +1,14 @@
 from __future__ import annotations
 
-from typing import List, Optional
+from typing import TYPE_CHECKING, List, Optional
 
 from pydantic import BaseModel
 
 from apps.db.base import BaseSchemaCreate, BaseSchemaResponse, SimpleBaseSchemaCreate
+
+if TYPE_CHECKING:
+    from apps.schemas.item import ItemResponseShort
+    from apps.schemas.user import UserResponseShort
 
 
 class AchievementCreate(BaseSchemaCreate):

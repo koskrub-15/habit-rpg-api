@@ -44,7 +44,9 @@ class Reward(SimpleBase):
     health_points = Column(Integer, nullable=False)
 
     items = relationship("Item", secondary="reward_item", back_populates="rewards")
-    achievements = relationship("Achievement", secondary="reward_achievement", back_populates="rewards")
+    achievements = relationship(
+        "Achievement", secondary="reward_achievement", back_populates="rewards"
+    )
 
 
 reward_item_table = Table(

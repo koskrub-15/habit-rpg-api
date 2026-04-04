@@ -2,7 +2,7 @@ import pytest_asyncio
 import pytest
 from httpx import AsyncClient
 from sqlalchemy.ext.asyncio import AsyncSession
-from apps.models.item import Item, ItemType, Rarity, ItemTheme
+from apps.models.item import Item, ItemType, Rarity
 from apps.schemas.item import ItemCreate, ItemUpdate
 
 
@@ -49,7 +49,9 @@ async def test_create_item(
     client: AsyncClient, db_session: AsyncSession, create_test_item_payload: ItemCreate
 ):
     """Tests the POST /api/v1/items/ endpoint for creating a new item."""
-    response = await client.post("/api/v1/items/", json=create_test_item_payload.model_dump(mode='json'))
+    response = await client.post(
+        "/api/v1/items/", json=create_test_item_payload.model_dump(mode="json")
+    )
 
     assert response.status_code == 201
     response_data = response.json()
@@ -71,8 +73,12 @@ async def test_get_items(
     create_another_test_item_payload: ItemCreate,
 ):
     """Tests the GET /api/v1/items/ endpoint for retrieving a list of items."""
-    await client.post("/api/v1/items/", json=create_test_item_payload.model_dump(mode='json'))
-    await client.post("/api/v1/items/", json=create_another_test_item_payload.model_dump(mode='json'))
+    await client.post(
+        "/api/v1/items/", json=create_test_item_payload.model_dump(mode="json")
+    )
+    await client.post(
+        "/api/v1/items/", json=create_another_test_item_payload.model_dump(mode="json")
+    )
 
     response = await client.get("/api/v1/items/")
 
@@ -99,7 +105,7 @@ async def test_get_items_pagination(
             item_type=ItemType.MISC,
             rarity=Rarity.COMMON,
         )
-        await client.post("/api/v1/items/", json=item_payload.model_dump(mode='json'))
+        await client.post("/api/v1/items/", json=item_payload.model_dump(mode="json"))
 
     response = await client.get("/api/v1/items/?skip=1&limit=2&order_by=created_at")
     assert response.status_code == 200
@@ -116,8 +122,12 @@ async def test_get_items_filter_by_name(
     create_another_test_item_payload: ItemCreate,
 ):
     """Tests name filtering for the GET /api/v1/items/ endpoint."""
-    await client.post("/api/v1/items/", json=create_test_item_payload.model_dump(mode='json'))
-    await client.post("/api/v1/items/", json=create_another_test_item_payload.model_dump(mode='json'))
+    await client.post(
+        "/api/v1/items/", json=create_test_item_payload.model_dump(mode="json")
+    )
+    await client.post(
+        "/api/v1/items/", json=create_another_test_item_payload.model_dump(mode="json")
+    )
 
     response = await client.get("/api/v1/items/?name=Sword")
     assert response.status_code == 200
@@ -132,7 +142,7 @@ async def test_get_item_by_id(
 ):
     """Tests the GET /api/v1/items/{id} endpoint for retrieving an item by ID."""
     create_response = await client.post(
-        "/api/v1/items/", json=create_test_item_payload.model_dump(mode='json')
+        "/api/v1/items/", json=create_test_item_payload.model_dump(mode="json")
     )
     item_id = create_response.json()["id"]
 
@@ -159,12 +169,13 @@ async def test_update_item(
 ):
     """Tests the PATCH /api/v1/items/{id} endpoint for updating an existing item."""
     create_response = await client.post(
-        "/api/v1/items/", json=create_test_item_payload.model_dump(mode='json')
+        "/api/v1/items/", json=create_test_item_payload.model_dump(mode="json")
     )
     item_id = create_response.json()["id"]
 
     response = await client.patch(
-        f"/api/v1/items/{item_id}", json=create_update_item_payload.model_dump(mode='json', exclude_unset=True)
+        f"/api/v1/items/{item_id}",
+        json=create_update_item_payload.model_dump(mode="json", exclude_unset=True),
     )
     assert response.status_code == 200
     response_data = response.json()
@@ -180,7 +191,8 @@ async def test_update_item(
     assert updated_item.rarity == create_update_item_payload.rarity
 
     response_not_found = await client.patch(
-        "/api/v1/items/99999", json=create_update_item_payload.model_dump(mode='json', exclude_unset=True)
+        "/api/v1/items/99999",
+        json=create_update_item_payload.model_dump(mode="json", exclude_unset=True),
     )
     assert response_not_found.status_code == 404
     assert "detail" in response_not_found.json()
@@ -192,7 +204,7 @@ async def test_delete_item(
 ):
     """Tests the DELETE /api/v1/items/{id} endpoint for deleting an item."""
     create_response = await client.post(
-        "/api/v1/items/", json=create_test_item_payload.model_dump(mode='json')
+        "/api/v1/items/", json=create_test_item_payload.model_dump(mode="json")
     )
     item_id = create_response.json()["id"]
 
@@ -216,7 +228,9 @@ async def test_get_item_count(
     assert response_initial.status_code == 200
     assert response_initial.json()["count"] == 0
 
-    await client.post("/api/v1/items/", json=create_test_item_payload.model_dump(mode='json'))
+    await client.post(
+        "/api/v1/items/", json=create_test_item_payload.model_dump(mode="json")
+    )
 
     response_after_create = await client.get("/api/v1/items/count")
     assert response_after_create.status_code == 200
@@ -229,7 +243,7 @@ async def test_check_item_exists(
 ):
     """Tests the GET /api/v1/items/{id}/exists endpoint for checking item existence."""
     create_response = await client.post(
-        "/api/v1/items/", json=create_test_item_payload.model_dump(mode='json')
+        "/api/v1/items/", json=create_test_item_payload.model_dump(mode="json")
     )
     item_id = create_response.json()["id"]
 
@@ -251,8 +265,8 @@ async def test_bulk_create_items(
 ):
     """Tests the POST /api/v1/items/bulk endpoint for bulk creating items."""
     items_payload = [
-        create_test_item_payload.model_dump(mode='json'),
-        create_another_test_item_payload.model_dump(mode='json'),
+        create_test_item_payload.model_dump(mode="json"),
+        create_another_test_item_payload.model_dump(mode="json"),
     ]
 
     response = await client.post("/api/v1/items/bulk", json=items_payload)
@@ -272,11 +286,14 @@ async def test_bulk_create_items(
             description=f"Bulk description {i}",
             item_type=ItemType.CONSUMABLE,
             rarity=Rarity.COMMON,
-        ).model_dump(mode='json')
+        ).model_dump(mode="json")
         for i in range(101)
     ]
     response_limit_exceeded = await client.post(
         "/api/v1/items/bulk", json=large_items_payload
     )
     assert response_limit_exceeded.status_code == 400
-    assert "Cannot create more than 100 items at once" in response_limit_exceeded.json()["detail"]
+    assert (
+        "Cannot create more than 100 items at once"
+        in response_limit_exceeded.json()["detail"]
+    )
