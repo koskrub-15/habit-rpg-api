@@ -11,6 +11,45 @@ uv run pytest tests/ -v                  # 173 теста, SQLite in-memory
 
 Swagger UI: `http://localhost:8000/docs`
 
+---
+
+## Git workflow
+
+Коммиты прямо в `main` заблокированы хуком `no-commit-to-branch`. Работаем в ветках:
+
+```bash
+git checkout -b feature/my-feature   # новая ветка
+git add . && git commit              # pre-commit запустится автоматически
+git push origin feature/my-feature
+# → PR на GitHub → merge в main
+```
+
+Текущая рабочая ветка: **`opus_magnum`**
+
+### Pre-commit хуки
+
+| Хук | Статус | Что делает |
+|-----|--------|------------|
+| `uv-lock` | ✅ | Проверяет актуальность `uv.lock` |
+| `pre-commit-update` | ✅ | Обновляет версии хуков |
+| `ruff` | ✅ | Линтер Python (автофикс) |
+| `ruff-format` | ✅ | Форматтер Python |
+| `mypy` | ✅ | Статическая типизация |
+| `prettier` | ✅ | Форматтер YAML/MD/JSON |
+| `trailing-whitespace` | ✅ | Убирает пробелы в конце строк |
+| `check-yaml` / `check-toml` | ✅ | Валидация конфигов |
+| `debug-statements` | ✅ | Нет print/breakpoint в коде |
+| `sourcery` | 💤 | Закомментирован — нужен токен (`sourcery login`) |
+| `format-justfile` | 💤 | Закомментирован — нужен `just` (`sudo dnf install just`) |
+
+### Включить sourcery
+
+```bash
+# 1. Раскомментировать в .pre-commit-config.yaml
+# 2. Залогиниться:
+sourcery login
+```
+
 ## Стек
 
 - **FastAPI** + **SQLAlchemy 2.0 async** + **Pydantic v2**
