@@ -1,7 +1,6 @@
 import pytest
 from httpx import AsyncClient
 from sqlalchemy.ext.asyncio import AsyncSession
-from apps.models.user import User
 from apps.models.task import Task, TaskStatus
 from apps.models.habit import Habit, HabitStatus, HabitType
 
@@ -22,7 +21,9 @@ async def test_complete_task_creates_log_entry(
     await auth_client.patch(f"/api/v1/tasks/{task.id}", json={"status": "COMPLETED"})
 
     # Check logs
-    response = await auth_client.get("/api/v1/activity-log/", params={"user_id": user.id})
+    response = await auth_client.get(
+        "/api/v1/activity-log/", params={"user_id": user.id}
+    )
     assert response.status_code == 200
     logs = response.json()
     assert len(logs) >= 1
@@ -51,7 +52,9 @@ async def test_complete_habit_creates_log_entry(
     await auth_client.post(f"/api/v1/habits/{habit.id}/complete")
 
     # Check logs
-    response = await auth_client.get("/api/v1/activity-log/", params={"user_id": user.id})
+    response = await auth_client.get(
+        "/api/v1/activity-log/", params={"user_id": user.id}
+    )
     assert response.status_code == 200
     logs = response.json()
     assert any(
@@ -61,7 +64,9 @@ async def test_complete_habit_creates_log_entry(
 
 
 @pytest.mark.asyncio
-async def test_get_user_activity_log(auth_client: AsyncClient, db_session: AsyncSession, create_test_user):
+async def test_get_user_activity_log(
+    auth_client: AsyncClient, db_session: AsyncSession, create_test_user
+):
     """
     Tests retrieving the activity log for a specific user.
     """
@@ -71,13 +76,17 @@ async def test_get_user_activity_log(auth_client: AsyncClient, db_session: Async
 
     # Assuming some manual log creation for testing the GET endpoint
     # or just use the completion flow
-    response = await auth_client.get("/api/v1/activity-log/", params={"user_id": user.id})
+    response = await auth_client.get(
+        "/api/v1/activity-log/", params={"user_id": user.id}
+    )
     assert response.status_code == 200
     assert isinstance(response.json(), list)
 
 
 @pytest.mark.asyncio
-async def test_activity_log_pagination(auth_client: AsyncClient, db_session: AsyncSession, create_test_user):
+async def test_activity_log_pagination(
+    auth_client: AsyncClient, db_session: AsyncSession, create_test_user
+):
     """
     Tests pagination for the activity log endpoint.
     """
@@ -92,7 +101,9 @@ async def test_activity_log_pagination(auth_client: AsyncClient, db_session: Asy
         task = Task(name=f"Task {i}", user=user, status=TaskStatus.TODO)
         db_session.add(task)
         await db_session.commit()
-        await auth_client.patch(f"/api/v1/tasks/{task.id}", json={"status": "COMPLETED"})
+        await auth_client.patch(
+            f"/api/v1/tasks/{task.id}", json={"status": "COMPLETED"}
+        )
 
     # Test pagination
     response = await auth_client.get(

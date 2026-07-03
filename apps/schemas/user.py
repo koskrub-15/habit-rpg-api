@@ -9,8 +9,11 @@ from apps.schemas.achievement import AchievementResponseShort
 from apps.schemas.base import BaseSchemaResponse, SimpleBaseSchemaCreate
 from apps.schemas.habit import HabitResponseShort
 from apps.schemas.item import ItemResponseShort
-from apps.schemas.notification import NotificationResponse, UserNotificationPreferenceResponse
-from apps.schemas.task import TaskResponse, TaskResponseShort
+from apps.schemas.notification import (
+    NotificationResponse,
+    UserNotificationPreferenceResponse,
+)
+from apps.schemas.task import TaskResponse
 
 
 class UserCreate(SimpleBaseSchemaCreate):

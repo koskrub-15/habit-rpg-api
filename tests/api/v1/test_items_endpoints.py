@@ -46,7 +46,9 @@ async def create_update_item_payload():
 
 @pytest.mark.asyncio
 async def test_create_item(
-    auth_client: AsyncClient, db_session: AsyncSession, create_test_item_payload: ItemCreate
+    auth_client: AsyncClient,
+    db_session: AsyncSession,
+    create_test_item_payload: ItemCreate,
 ):
     """Tests the POST /api/v1/items/ endpoint for creating a new item."""
     response = await auth_client.post(
@@ -105,9 +107,13 @@ async def test_get_items_pagination(
             item_type=ItemType.MISC,
             rarity=Rarity.COMMON,
         )
-        await auth_client.post("/api/v1/items/", json=item_payload.model_dump(mode="json"))
+        await auth_client.post(
+            "/api/v1/items/", json=item_payload.model_dump(mode="json")
+        )
 
-    response = await auth_client.get("/api/v1/items/?skip=1&limit=2&order_by=created_at")
+    response = await auth_client.get(
+        "/api/v1/items/?skip=1&limit=2&order_by=created_at"
+    )
     assert response.status_code == 200
     response_data = response.json()
     assert len(response_data) == 2
@@ -138,7 +144,9 @@ async def test_get_items_filter_by_name(
 
 @pytest.mark.asyncio
 async def test_get_item_by_id(
-    auth_client: AsyncClient, db_session: AsyncSession, create_test_item_payload: ItemCreate
+    auth_client: AsyncClient,
+    db_session: AsyncSession,
+    create_test_item_payload: ItemCreate,
 ):
     """Tests the GET /api/v1/items/{id} endpoint for retrieving an item by ID."""
     create_response = await auth_client.post(
@@ -183,7 +191,7 @@ async def test_update_item(
     assert response_data["id"] == item_id
     assert response_data["name"] == create_update_item_payload.name
     assert response_data["attack"] == create_update_item_payload.attack
-    assert response_data["rarity"] == create_update_item_payload.rarity.value
+    assert response_data["rarity"] == create_update_item_payload.rarity.value  # type: ignore[union-attr]
 
     updated_item = await db_session.get(Item, item_id)
     assert updated_item.name == create_update_item_payload.name
@@ -200,7 +208,9 @@ async def test_update_item(
 
 @pytest.mark.asyncio
 async def test_delete_item(
-    auth_client: AsyncClient, db_session: AsyncSession, create_test_item_payload: ItemCreate
+    auth_client: AsyncClient,
+    db_session: AsyncSession,
+    create_test_item_payload: ItemCreate,
 ):
     """Tests the DELETE /api/v1/items/{id} endpoint for deleting an item."""
     create_response = await auth_client.post(
@@ -221,7 +231,9 @@ async def test_delete_item(
 
 @pytest.mark.asyncio
 async def test_get_item_count(
-    auth_client: AsyncClient, db_session: AsyncSession, create_test_item_payload: ItemCreate
+    auth_client: AsyncClient,
+    db_session: AsyncSession,
+    create_test_item_payload: ItemCreate,
 ):
     """Tests the GET /api/v1/items/count endpoint for retrieving the item count."""
     response_initial = await auth_client.get("/api/v1/items/count")
@@ -239,7 +251,9 @@ async def test_get_item_count(
 
 @pytest.mark.asyncio
 async def test_check_item_exists(
-    auth_client: AsyncClient, db_session: AsyncSession, create_test_item_payload: ItemCreate
+    auth_client: AsyncClient,
+    db_session: AsyncSession,
+    create_test_item_payload: ItemCreate,
 ):
     """Tests the GET /api/v1/items/{id}/exists endpoint for checking item existence."""
     create_response = await auth_client.post(

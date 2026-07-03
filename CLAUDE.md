@@ -65,16 +65,16 @@ habit_crud = CRUDHabit()
 
 ### Методы
 
-| Метод | Что делает |
-|-------|------------|
-| `create(db, obj_in)` | Создать запись (принимает схему или dict), делает commit |
-| `get(db, id, relationships=[...])` | Получить по ID, опционально загружая связи через `selectinload` |
-| `get_multi(db, skip, limit, filters, search_fields, order_by, relationships)` | Список с пагинацией, фильтрами, LIKE-поиском, сортировкой |
-| `update(db, id, obj_in)` | Обновить — только переданные поля (`exclude_unset=True`) |
-| `delete(db, id)` | Удалить по ID |
-| `count(db, filters)` | Подсчёт записей |
-| `bulk_create(db, objs_in)` | Массовое создание |
-| `get_or_create(db, **kwargs)` | Найти или создать, возвращает `(объект, был_создан)` |
+| Метод                                                                         | Что делает                                                      |
+| ----------------------------------------------------------------------------- | --------------------------------------------------------------- |
+| `create(db, obj_in)`                                                          | Создать запись (принимает схему или dict), делает commit        |
+| `get(db, id, relationships=[...])`                                            | Получить по ID, опционально загружая связи через `selectinload` |
+| `get_multi(db, skip, limit, filters, search_fields, order_by, relationships)` | Список с пагинацией, фильтрами, LIKE-поиском, сортировкой       |
+| `update(db, id, obj_in)`                                                      | Обновить — только переданные поля (`exclude_unset=True`)        |
+| `delete(db, id)`                                                              | Удалить по ID                                                   |
+| `count(db, filters)`                                                          | Подсчёт записей                                                 |
+| `bulk_create(db, objs_in)`                                                    | Массовое создание                                               |
+| `get_or_create(db, **kwargs)`                                                 | Найти или создать, возвращает `(объект, был_создан)`            |
 
 ### Расширение через override
 
@@ -130,16 +130,16 @@ router = factory.create_router()
 
 ### Что генерируется
 
-| Метод | Путь | Описание |
-|-------|------|----------|
-| POST | `/habits/` | Создать |
-| GET | `/habits/` | Список (пагинация, фильтр `?name=`, сортировка `?order_by=-created_at`) |
-| GET | `/habits/count` | Количество |
-| GET | `/habits/{id}` | Получить по ID |
-| PATCH | `/habits/{id}` | Обновить (только переданные поля) |
-| DELETE | `/habits/{id}` | Удалить |
-| GET | `/habits/{id}/exists` | Проверить существование |
-| POST | `/habits/bulk` | Массовое создание (до 100 шт.) |
+| Метод  | Путь                  | Описание                                                                |
+| ------ | --------------------- | ----------------------------------------------------------------------- |
+| POST   | `/habits/`            | Создать                                                                 |
+| GET    | `/habits/`            | Список (пагинация, фильтр `?name=`, сортировка `?order_by=-created_at`) |
+| GET    | `/habits/count`       | Количество                                                              |
+| GET    | `/habits/{id}`        | Получить по ID                                                          |
+| PATCH  | `/habits/{id}`        | Обновить (только переданные поля)                                       |
+| DELETE | `/habits/{id}`        | Удалить                                                                 |
+| GET    | `/habits/{id}/exists` | Проверить существование                                                 |
+| POST   | `/habits/bulk`        | Массовое создание (до 100 шт.)                                          |
 
 ### Как RouterFactory загружает связи автоматически
 
@@ -175,6 +175,7 @@ MinimalBase   ← id, created_at, updated_at
 ```
 
 **Правило выбора:**
+
 - `MinimalBase` → таблицы-связки и логи, у которых нет смыслового "имени":
   - `Friendship`, `InventoryItem`, `EquippedItem`, `ActivityLog`
 - `SimpleBase` / `Base` → доменные сущности с именем:
@@ -228,13 +229,13 @@ class HabitResponse(HabitResponseShort):     # полный ответ — до�
 
 ### Фикстуры (`conftest.py`)
 
-| Фикстура | Что даёт |
-|----------|----------|
-| `db_session` | Async SQLite сессия, откатывается после каждого теста |
-| `client` | FastAPI TestClient с тестовой БД |
-| `test_user` | Создан пользователь в БД |
-| `auth_client` | TestClient с `Authorization: Bearer <jwt>` заголовком для `test_user` |
-| `create_test_user_for_tasks` | Отдельный пользователь (не `test_user`) для тестирования ресурсов |
+| Фикстура                     | Что даёт                                                              |
+| ---------------------------- | --------------------------------------------------------------------- |
+| `db_session`                 | Async SQLite сессия, откатывается после каждого теста                 |
+| `client`                     | FastAPI TestClient с тестовой БД                                      |
+| `test_user`                  | Создан пользователь в БД                                              |
+| `auth_client`                | TestClient с `Authorization: Bearer <jwt>` заголовком для `test_user` |
+| `create_test_user_for_tasks` | Отдельный пользователь (не `test_user`) для тестирования ресурсов     |
 
 ### Паттерн тестов
 

@@ -152,6 +152,9 @@ class RouterFactory(
 
         return self.router
 
+    def _add_related_resources_endpoints(self) -> None:
+        pass
+
     def _add_create_endpoint(self):
         """POST / - create resource"""
 
@@ -167,7 +170,11 @@ class RouterFactory(
             current_user: Any = self.current_user_dependency,
         ):
             f"""Create a new {self.resource_name}"""
-            if current_user and hasattr(resource_in, "user_id") and resource_in.user_id is None:
+            if (
+                current_user
+                and hasattr(resource_in, "user_id")
+                and resource_in.user_id is None
+            ):
                 resource_in.user_id = current_user.id
 
             resource = await self.crud.create(db, resource_in)

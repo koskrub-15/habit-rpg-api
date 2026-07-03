@@ -8,7 +8,9 @@ from apps.models.store_rotation import ShopItem
 
 
 @pytest.mark.asyncio
-async def test_buy_item_deducts_gold(auth_client: AsyncClient, db_session: AsyncSession):
+async def test_buy_item_deducts_gold(
+    auth_client: AsyncClient, db_session: AsyncSession
+):
     """
     Tests that buying an item correctly deducts gold from the user.
     """
@@ -55,7 +57,9 @@ async def test_buy_item_adds_to_inventory(
     db_session.add(shop_item)
     await db_session.commit()
 
-    await auth_client.post(f"/api/v1/shop/buy/{shop_item.id}", params={"user_id": user.id})
+    await auth_client.post(
+        f"/api/v1/shop/buy/{shop_item.id}", params={"user_id": user.id}
+    )
 
     # Check inventory
     from sqlalchemy import select
@@ -109,7 +113,9 @@ async def test_buy_nonexistent_shop_item_returns_404(
     db_session.add(user)
     await db_session.commit()
 
-    response = await auth_client.post("/api/v1/shop/buy/9999", params={"user_id": user.id})
+    response = await auth_client.post(
+        "/api/v1/shop/buy/9999", params={"user_id": user.id}
+    )
     assert response.status_code == 404
 
 
@@ -139,7 +145,9 @@ async def test_buy_out_of_stock_returns_400(
 
 
 @pytest.mark.asyncio
-async def test_buy_reduces_stock_by_one(auth_client: AsyncClient, db_session: AsyncSession):
+async def test_buy_reduces_stock_by_one(
+    auth_client: AsyncClient, db_session: AsyncSession
+):
     """
     Tests that buying an item reduces its stock by one.
     """
@@ -158,7 +166,9 @@ async def test_buy_reduces_stock_by_one(auth_client: AsyncClient, db_session: As
     db_session.add(shop_item)
     await db_session.commit()
 
-    await auth_client.post(f"/api/v1/shop/buy/{shop_item.id}", params={"user_id": user.id})
+    await auth_client.post(
+        f"/api/v1/shop/buy/{shop_item.id}", params={"user_id": user.id}
+    )
 
     await db_session.refresh(shop_item)
     assert shop_item.stock == 9

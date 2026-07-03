@@ -381,7 +381,9 @@ async def test_bulk_create_shop_items(
         ).model_dump(mode="json"),
     ]
 
-    response = await auth_client.post("/api/v1/shop_items/bulk", json=shop_items_payload)
+    response = await auth_client.post(
+        "/api/v1/shop_items/bulk", json=shop_items_payload
+    )
     assert response.status_code == 201
     response_data = response.json()
     assert isinstance(response_data, list)

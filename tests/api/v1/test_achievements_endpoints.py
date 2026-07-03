@@ -290,7 +290,9 @@ async def test_check_achievement_exists(
     )
     achievement_id = create_response.json()["id"]
 
-    response_exists = await auth_client.get(f"/api/v1/achievements/{achievement_id}/exists")
+    response_exists = await auth_client.get(
+        f"/api/v1/achievements/{achievement_id}/exists"
+    )
     assert response_exists.status_code == 200
     assert response_exists.json()["exists"] is True
 
@@ -312,7 +314,9 @@ async def test_bulk_create_achievements(
         create_another_test_achievement_payload.model_dump(mode="json"),
     ]
 
-    response = await auth_client.post("/api/v1/achievements/bulk", json=achievements_payload)
+    response = await auth_client.post(
+        "/api/v1/achievements/bulk", json=achievements_payload
+    )
     assert response.status_code == 201
     response_data = response.json()
     assert isinstance(response_data, list)

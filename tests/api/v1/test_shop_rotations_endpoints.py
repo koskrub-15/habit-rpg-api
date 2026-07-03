@@ -63,7 +63,7 @@ async def test_create_shop_rotation(
 
     assert "id" in response_data
     assert response_data["name"] == create_test_shop_rotation_payload.name
-    assert response_data["theme"] == create_test_shop_rotation_payload.theme.value
+    assert response_data["theme"] == create_test_shop_rotation_payload.theme.value  # type: ignore[union-attr]
 
     created_rotation = await db_session.get(ShopRotation, response_data["id"])
     assert created_rotation is not None
@@ -170,7 +170,7 @@ async def test_get_shop_rotation_by_id(
 
     assert response_data["id"] == rotation_id
     assert response_data["name"] == create_test_shop_rotation_payload.name
-    assert response_data["theme"] == create_test_shop_rotation_payload.theme.value
+    assert response_data["theme"] == create_test_shop_rotation_payload.theme.value  # type: ignore[union-attr]
 
     response_not_found = await auth_client.get("/api/v1/shop_rotations/99999")
     assert response_not_found.status_code == 404
@@ -209,9 +209,9 @@ async def test_update_shop_rotation(
     updated_rotation = await db_session.get(ShopRotation, rotation_id)
     assert updated_rotation.name == create_update_shop_rotation_payload.name
 
-    assert updated_rotation.end_date.strftime(
+    assert updated_rotation.end_date.strftime(  # type: ignore[union-attr]
         "%Y-%m-%d %H:%M:%S"
-    ) == create_update_shop_rotation_payload.end_date.strftime("%Y-%m-%d %H:%M:%S")
+    ) == create_update_shop_rotation_payload.end_date.strftime("%Y-%m-%d %H:%M:%S")  # type: ignore[union-attr]
 
     response_not_found = await auth_client.patch(
         "/api/v1/shop_rotations/99999",
@@ -281,7 +281,9 @@ async def test_check_shop_rotation_exists(
     )
     rotation_id = create_response.json()["id"]
 
-    response_exists = await auth_client.get(f"/api/v1/shop_rotations/{rotation_id}/exists")
+    response_exists = await auth_client.get(
+        f"/api/v1/shop_rotations/{rotation_id}/exists"
+    )
     assert response_exists.status_code == 200
     assert response_exists.json()["exists"] is True
 
@@ -303,7 +305,9 @@ async def test_bulk_create_shop_rotations(
         create_another_test_shop_rotation_payload.model_dump(mode="json"),
     ]
 
-    response = await auth_client.post("/api/v1/shop_rotations/bulk", json=rotations_payload)
+    response = await auth_client.post(
+        "/api/v1/shop_rotations/bulk", json=rotations_payload
+    )
     assert response.status_code == 201
     response_data = response.json()
     assert isinstance(response_data, list)

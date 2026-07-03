@@ -3,7 +3,6 @@ from httpx import AsyncClient, ASGITransport
 from sqlalchemy.ext.asyncio import AsyncSession, create_async_engine
 from sqlalchemy.orm import sessionmaker
 
-from apps.db.base import Base as DBBase
 from apps.main import app
 from apps.db.session import get_db
 from apps.core.security import create_access_token
@@ -32,6 +31,7 @@ async def db_session_fixture() -> AsyncSession:
     """
     async with engine.begin() as connection:
         from apps.db.base import mapper_registry
+
         await connection.run_sync(mapper_registry.metadata.drop_all)
         await connection.run_sync(mapper_registry.metadata.create_all)
 
@@ -45,6 +45,7 @@ async def client_fixture(db_session: AsyncSession) -> AsyncClient:
     """
     Creates a FastAPI test client that uses a mocked database session.
     """
+
     async def override_get_db():
         yield db_session
 
@@ -64,9 +65,7 @@ async def test_user_fixture(db_session: AsyncSession) -> User:
     Creates a test user in the database.
     """
     user_in = UserCreate(
-        email="test@example.com",
-        password="password123",
-        name="Test User"
+        email="test@example.com", password="password123", name="Test User"
     )
     user = await user_crud.create(db_session, obj_in=user_in)
     return user
@@ -91,7 +90,9 @@ async def create_test_user(db_session: AsyncSession):
     user_counter = 0
 
     async def _create_user(
-        email: Optional[str] = None, name: str = "Test User", password: str = "password123"
+        email: Optional[str] = None,
+        name: str = "Test User",
+        password: str = "password123",
     ) -> User:
         nonlocal user_counter
         if email is None:

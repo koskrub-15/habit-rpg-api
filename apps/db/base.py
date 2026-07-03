@@ -8,8 +8,9 @@ mapper_registry = registry()
 _LegacyBase = mapper_registry.generate_base()
 
 
-class MinimalBase(_LegacyBase):
+class MinimalBase(_LegacyBase):  # type: ignore[misc, valid-type]
     """Base for models that don't need name/description (junction tables, logs, etc.)."""
+
     __abstract__ = True
     id = Column(Integer, primary_key=True, autoincrement=True)
     created_at = Column(DateTime, default=lambda: datetime.now(timezone.utc))

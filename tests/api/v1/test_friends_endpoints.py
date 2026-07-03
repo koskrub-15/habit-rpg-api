@@ -63,7 +63,9 @@ async def test_send_duplicate_friend_request_returns_409(
 
 
 @pytest.mark.asyncio
-async def test_accept_friend_request(auth_client: AsyncClient, db_session: AsyncSession):
+async def test_accept_friend_request(
+    auth_client: AsyncClient, db_session: AsyncSession
+):
     """
     Tests accepting a friend request.
     """
@@ -92,7 +94,9 @@ async def test_accept_friend_request(auth_client: AsyncClient, db_session: Async
 
 
 @pytest.mark.asyncio
-async def test_decline_friend_request(auth_client: AsyncClient, db_session: AsyncSession):
+async def test_decline_friend_request(
+    auth_client: AsyncClient, db_session: AsyncSession
+):
     """
     Tests declining a friend request.
     """

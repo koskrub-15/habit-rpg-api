@@ -113,7 +113,9 @@ async def test_get_rewards_pagination(
             "/api/v1/rewards/", json=reward_payload.model_dump(mode="json")
         )
 
-    response = await auth_client.get("/api/v1/rewards/?skip=1&limit=2&order_by=created_at")
+    response = await auth_client.get(
+        "/api/v1/rewards/?skip=1&limit=2&order_by=created_at"
+    )
     assert response.status_code == 200
     response_data = response.json()
     assert len(response_data) == 2

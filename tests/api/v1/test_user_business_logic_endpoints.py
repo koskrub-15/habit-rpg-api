@@ -7,14 +7,10 @@ from apps.models.habit import Habit, HabitStatus, HabitType
 from apps.models.item import Item, ItemType
 from apps.models.task import Size, Task, TaskStatus, TaskType
 from apps.models.user import EquippedItem, InventoryItem, SlotType, User
-from apps.schemas.user import UserCreate
 
 # ---------------------------------------------------------------------------
 # Fixtures
 # ---------------------------------------------------------------------------
-
-
-
 
 
 @pytest_asyncio.fixture
@@ -653,16 +649,18 @@ async def user_with_inventory_item(
     test_armor_item: Item,
 ) -> tuple[User, InventoryItem]:
     """User with 3 armor items in inventory."""
-    print(f"\n--- user_with_inventory_item fixture start ---")
+    print("\n--- user_with_inventory_item fixture start ---")
     print(f"test_user.id: {test_user.id}")
     print(f"test_armor_item.id: {test_armor_item.id}")
     inv = InventoryItem(user_id=test_user.id, item_id=test_armor_item.id, quantity=3)
     db_session.add(inv)
     await db_session.commit()
     await db_session.refresh(inv)
-    await db_session.refresh(test_user) # Explicitly refresh the user object
-    print(f"Created InventoryItem: inv.id={inv.id}, user_id={inv.user_id}, item_id={inv.item_id}, quantity={inv.quantity}")
-    print(f"--- user_with_inventory_item fixture end ---\n")
+    await db_session.refresh(test_user)  # Explicitly refresh the user object
+    print(
+        f"Created InventoryItem: inv.id={inv.id}, user_id={inv.user_id}, item_id={inv.item_id}, quantity={inv.quantity}"
+    )
+    print("--- user_with_inventory_item fixture end ---\n")
     return test_user, inv
 
 
@@ -675,7 +673,7 @@ async def test_remove_item_reduces_quantity(
 ):
     """Removing fewer items than available reduces quantity."""
     user, inv = user_with_inventory_item
-    print(f"\n--- test_remove_item_reduces_quantity test start ---")
+    print("\n--- test_remove_item_reduces_quantity test start ---")
     print(f"API Call: DELETE /api/v1/users/{user.id}/inventory/{test_armor_item.id}")
     print(f"user.id from test: {user.id}")
     print(f"test_armor_item.id from test: {test_armor_item.id}")
@@ -687,7 +685,7 @@ async def test_remove_item_reduces_quantity(
 
     await db_session.refresh(inv)
     assert inv.quantity == 1
-    print(f"--- test_remove_item_reduces_quantity test end ---\n")
+    print("--- test_remove_item_reduces_quantity test end ---\n")
 
 
 @pytest.mark.asyncio
