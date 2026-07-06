@@ -1,4 +1,5 @@
 from .achievement import Achievement as Achievement, Reward as Reward
+from .revoked_token import RevokedToken as RevokedToken
 from .habit import Habit as Habit
 from .item import Item as Item
 from .notification import (

@@ -1,3 +1,5 @@
+from datetime import datetime, timezone
+
 from fastapi import APIRouter, Body, Depends, HTTPException, status
 from fastapi.security import OAuth2PasswordRequestForm
 from sqlalchemy.ext.asyncio import AsyncSession
@@ -9,8 +11,10 @@ from apps.core.security import (
     hash_password,
     verify_password,
 )
+from apps.CRUD.from_models.revoked_token import revoked_token_crud
 from apps.CRUD.from_models.user import user_crud
 from apps.db.session import get_db
+from apps.schemas.revoked_token import RevokedTokenCreate
 from apps.schemas.user import UserCreate, UserResponseShort
 
 router = APIRouter(prefix="/auth", tags=["Auth"])
@@ -63,16 +67,23 @@ async def refresh_token(
     db: AsyncSession = Depends(get_db),
 ):
     """Obtain a new access token using a valid refresh token."""
-    user_id = decode_refresh_token(refresh_token)
-    if not user_id:
+    payload = decode_refresh_token(refresh_token)
+    if not payload:
         raise HTTPException(
             status_code=status.HTTP_401_UNAUTHORIZED,
             detail="Invalid or expired refresh token",
             headers={"WWW-Authenticate": "Bearer"},
         )
 
-    # Check if user still exists
-    user = await user_crud.get(db, int(user_id))
+    jti = payload["jti"]
+    if await revoked_token_crud.is_revoked(db, jti=jti):
+        raise HTTPException(
+            status_code=status.HTTP_401_UNAUTHORIZED,
+            detail="Token has been revoked",
+            headers={"WWW-Authenticate": "Bearer"},
+        )
+
+    user = await user_crud.get(db, int(payload["sub"]))
     if not user:
         raise HTTPException(
             status_code=status.HTTP_401_UNAUTHORIZED,
@@ -80,8 +91,6 @@ async def refresh_token(
         )
 
     new_access_token = create_access_token(subject=user.id)
-    # Ideally, we verify reuse detection here, but for MVP:
-    # Rotate refresh token as well for better security
     new_refresh_token = create_refresh_token(subject=user.id)
 
     return {
@@ -92,10 +101,21 @@ async def refresh_token(
 
 
 @router.post("/logout")
-async def logout():
-    """Logout the user (frontend should discard tokens).
+async def logout(
+    refresh_token: str = Body(..., embed=True),
+    db: AsyncSession = Depends(get_db),
+):
+    """Logout the user by revoking their refresh token."""
+    payload = decode_refresh_token(refresh_token)
+    if not payload:
+        raise HTTPException(
+            status_code=status.HTTP_401_UNAUTHORIZED,
+            detail="Invalid or expired refresh token",
+        )
 
-    In a stateless JWT system, server-side logout requires a blacklist.
-    For MVP, we just return 200 OK.
-    """
+    jti = payload["jti"]
+    if not await revoked_token_crud.is_revoked(db, jti=jti):
+        expires_at = datetime.fromtimestamp(payload["exp"], tz=timezone.utc)
+        await revoked_token_crud.create(db, RevokedTokenCreate(jti=jti, expires_at=expires_at))
+
     return {"message": "Logged out successfully"}
