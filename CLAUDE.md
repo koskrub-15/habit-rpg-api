@@ -16,6 +16,16 @@ uv run pytest tests/ -v                  # 173 теста, SQLite in-memory
 
 Swagger UI: `http://localhost:8000/docs`
 
+### Docker (dev)
+
+```bash
+cp compose.override.dev.yaml compose.override.yaml   # один раз локально
+docker compose up --build                             # поднять app + PostgreSQL
+docker compose watch                                  # hot-reload при изменениях
+```
+
+`compose.override.yaml` в `.gitignore` — не коммитится. Основан на `compose.override.dev.yaml`.
+
 ---
 
 ## Git workflow
@@ -326,3 +336,5 @@ uv run pytest -k "test_create"   # по названию
 | **RouterFactory изнутри** | как генерируются 8 эндпоинтов, автоматический selectinload — отложили |
 | **Архитектура** | почему CRUD отделён от эндпоинтов, паттерн commit=False/flush |
 | **Валидаторы в схемах** | UserCreate (email/password), ShopRotation (end > start), Item (attack/defense >= 0) |
+| **Alembic** | `env.py` пока с `target_metadata = None` — нужно подключить модели и сделать первую миграцию |
+| **Docker** | Dockerfile + compose восстановлены. Проверить билд локально: `docker compose up --build` |
