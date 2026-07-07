@@ -301,3 +301,28 @@ uv run pytest tests/ -v          # все тесты
 uv run pytest tests/api/v1/test_habits_endpoints.py -v  # конкретный файл
 uv run pytest -k "test_create"   # по названию
 ```
+
+---
+
+## Прогресс обучения
+
+### Пройдено
+
+| Тема | Что разобрали |
+|------|--------------|
+| **SQLAlchemy** | relationship, selectinload, cascade/delete-orphan, flush vs commit |
+| **Pydantic** | паттерн 4 схем, from_attributes, field_validator |
+| **JWT / Безопасность** | access token, refresh token, jti, Argon2, get_current_user |
+| **Refresh token blacklist** | реализовали: модель RevokedToken, CRUD, реальный logout с инвалидацией |
+| **FastAPI Depends** | dependency injection, цепочка зависимостей, yield в get_db |
+| **Роутеры** | двухуровневая структура (main → api_router → ресурсы), prefix, порядок маршрутов |
+| **Тесты** | fixtures, yield setup/teardown, dependency_overrides, изоляция drop+rollback, scope, фабрика в фикстуре, asyncio_mode=auto |
+
+### Осталось
+
+| Тема | Заметки |
+|------|---------|
+| **BaseCRUD** | Generic[ModelType], TypeVar, IntegrityError — отложили, тяжёлая тема |
+| **RouterFactory изнутри** | как генерируются 8 эндпоинтов, автоматический selectinload — отложили |
+| **Архитектура** | почему CRUD отделён от эндпоинтов, паттерн commit=False/flush |
+| **Валидаторы в схемах** | UserCreate (email/password), ShopRotation (end > start), Item (attack/defense >= 0) |
