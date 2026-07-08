@@ -2,7 +2,7 @@ from __future__ import annotations
 
 from typing import Optional
 
-from pydantic import BaseModel, ConfigDict
+from pydantic import BaseModel, ConfigDict, Field
 
 from apps.models.item import ItemTheme, ItemType, Rarity
 from apps.schemas.base import BaseSchemaResponse, SimpleBaseSchemaCreate
@@ -10,10 +10,10 @@ from apps.schemas.base import BaseSchemaResponse, SimpleBaseSchemaCreate
 
 class ItemCreate(SimpleBaseSchemaCreate):
     item_type: ItemType
-    defense: int = 0
-    attack: int = 0
-    pet_power: int = 0
-    required_level: int = 0
+    defense: int = Field(default=0, ge=0)
+    attack: int = Field(default=0, ge=0)
+    pet_power: int = Field(default=0, ge=0)
+    required_level: int = Field(default=0, ge=0)
     rarity: Rarity = Rarity.COMMON
     available_in_shop: bool = False
     theme: ItemTheme = ItemTheme.COMMON

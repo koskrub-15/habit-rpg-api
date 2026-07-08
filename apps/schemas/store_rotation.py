@@ -3,7 +3,7 @@ from __future__ import annotations
 from datetime import datetime
 from typing import Optional
 
-from pydantic import BaseModel, ConfigDict
+from pydantic import BaseModel, ConfigDict, model_validator
 
 from apps.models.item import ItemTheme, Rarity
 from apps.schemas.base import BaseSchemaResponse, SimpleBaseSchemaCreate
@@ -48,6 +48,12 @@ class ShopRotationCreate(SimpleBaseSchemaCreate):
     start_date: datetime
     end_date: datetime
     theme: Optional[ItemTheme] = None
+
+    @model_validator(mode="after")
+    def validate_dates(self) -> "ShopRotationCreate":
+        if self.end_date <= self.start_date:
+            raise ValueError("end_date must be after start_date")
+        return self
 
 
 class ShopRotationUpdate(BaseModel):
