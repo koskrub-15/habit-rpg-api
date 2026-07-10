@@ -29,4 +29,6 @@ apps/**/__pycache__/
 apps/**/*.pyc
 tests/**/__pycache__/
 tests/**/*.pyc
+alembic/**/__pycache__/
+alembic/**/*.pyc
 !.pre-commit-config.yaml
