@@ -43,19 +43,19 @@ git push origin feature/my-feature
 
 ### Pre-commit хуки
 
-| Хук | Статус | Что делает |
-|-----|--------|------------|
-| `uv-lock` | ✅ | Проверяет актуальность `uv.lock` |
-| `pre-commit-update` | ✅ | Обновляет версии хуков |
-| `ruff` | ✅ | Линтер Python (автофикс) |
-| `ruff-format` | ✅ | Форматтер Python |
-| `mypy` | ✅ | Статическая типизация |
-| `prettier` | ✅ | Форматтер YAML/MD/JSON |
-| `trailing-whitespace` | ✅ | Убирает пробелы в конце строк |
-| `check-yaml` / `check-toml` | ✅ | Валидация конфигов |
-| `debug-statements` | ✅ | Нет print/breakpoint в коде |
-| `sourcery` | 💤 | Закомментирован — нужен токен (`sourcery login`) |
-| `format-justfile` | 💤 | Закомментирован — нужен `just` (`sudo dnf install just`) |
+| Хук                         | Статус | Что делает                                               |
+| --------------------------- | ------ | -------------------------------------------------------- |
+| `uv-lock`                   | ✅     | Проверяет актуальность `uv.lock`                         |
+| `pre-commit-update`         | ✅     | Обновляет версии хуков                                   |
+| `ruff`                      | ✅     | Линтер Python (автофикс)                                 |
+| `ruff-format`               | ✅     | Форматтер Python                                         |
+| `mypy`                      | ✅     | Статическая типизация                                    |
+| `prettier`                  | ✅     | Форматтер YAML/MD/JSON                                   |
+| `trailing-whitespace`       | ✅     | Убирает пробелы в конце строк                            |
+| `check-yaml` / `check-toml` | ✅     | Валидация конфигов                                       |
+| `debug-statements`          | ✅     | Нет print/breakpoint в коде                              |
+| `sourcery`                  | 💤     | Закомментирован — нужен токен (`sourcery login`)         |
+| `format-justfile`           | 💤     | Закомментирован — нужен `just` (`sudo dnf install just`) |
 
 ### Включить sourcery
 
@@ -311,4 +311,3 @@ uv run pytest tests/ -v          # все тесты
 uv run pytest tests/api/v1/test_habits_endpoints.py -v  # конкретный файл
 uv run pytest -k "test_create"   # по названию
 ```
-

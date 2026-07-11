@@ -2,7 +2,7 @@ from __future__ import annotations
 
 from typing import List, Optional
 
-from pydantic import BaseModel, ConfigDict, field_validator, field_validator
+from pydantic import BaseModel, ConfigDict, field_validator
 
 from apps.models.user import SlotType
 from apps.schemas.achievement import AchievementResponseShort

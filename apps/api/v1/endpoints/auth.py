@@ -116,6 +116,8 @@ async def logout(
     jti = payload["jti"]
     if not await revoked_token_crud.is_revoked(db, jti=jti):
         expires_at = datetime.fromtimestamp(payload["exp"], tz=timezone.utc)
-        await revoked_token_crud.create(db, RevokedTokenCreate(jti=jti, expires_at=expires_at))
+        await revoked_token_crud.create(
+            db, RevokedTokenCreate(jti=jti, expires_at=expires_at)
+        )
 
     return {"message": "Logged out successfully"}
