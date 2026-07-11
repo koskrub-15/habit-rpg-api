@@ -9,7 +9,7 @@ from apps.models.store_rotation import ShopItem
 
 @pytest.mark.asyncio
 async def test_buy_item_deducts_gold(
-    auth_client: AsyncClient, db_session: AsyncSession
+    client: AsyncClient, db_session: AsyncSession, auth_headers
 ):
     """
     Tests that buying an item correctly deducts gold from the user.
@@ -27,11 +27,8 @@ async def test_buy_item_deducts_gold(
     db_session.add(shop_item)
     await db_session.commit()
 
-    # Buy item (Assuming we have a way to authenticate or pass user_id)
-    # For now, let's assume we pass user context or it's mocked
-    # In a real scenario, this would be an authenticated request
-    response = await auth_client.post(
-        f"/api/v1/shop/buy/{shop_item.id}", params={"user_id": user.id}
+    response = await client.post(
+        f"/api/v1/shop/buy/{shop_item.id}", headers=auth_headers(user)
     )
 
     assert response.status_code == 200
@@ -41,7 +38,7 @@ async def test_buy_item_deducts_gold(
 
 @pytest.mark.asyncio
 async def test_buy_item_adds_to_inventory(
-    auth_client: AsyncClient, db_session: AsyncSession
+    client: AsyncClient, db_session: AsyncSession, auth_headers
 ):
     """
     Tests that a purchased item is added to the user's inventory.
@@ -57,9 +54,7 @@ async def test_buy_item_adds_to_inventory(
     db_session.add(shop_item)
     await db_session.commit()
 
-    await auth_client.post(
-        f"/api/v1/shop/buy/{shop_item.id}", params={"user_id": user.id}
-    )
+    await client.post(f"/api/v1/shop/buy/{shop_item.id}", headers=auth_headers(user))
 
     # Check inventory
     from sqlalchemy import select
@@ -75,7 +70,7 @@ async def test_buy_item_adds_to_inventory(
 
 @pytest.mark.asyncio
 async def test_buy_item_not_enough_gold_returns_400(
-    auth_client: AsyncClient, db_session: AsyncSession
+    client: AsyncClient, db_session: AsyncSession, auth_headers
 ):
     """
     Tests that a user cannot buy an item if they don't have enough gold.
@@ -95,8 +90,8 @@ async def test_buy_item_not_enough_gold_returns_400(
     db_session.add(shop_item)
     await db_session.commit()
 
-    response = await auth_client.post(
-        f"/api/v1/shop/buy/{shop_item.id}", params={"user_id": user.id}
+    response = await client.post(
+        f"/api/v1/shop/buy/{shop_item.id}", headers=auth_headers(user)
     )
     assert response.status_code == 400
     assert "Not enough gold" in response.json()["detail"]
@@ -104,7 +99,7 @@ async def test_buy_item_not_enough_gold_returns_400(
 
 @pytest.mark.asyncio
 async def test_buy_nonexistent_shop_item_returns_404(
-    auth_client: AsyncClient, db_session: AsyncSession
+    client: AsyncClient, db_session: AsyncSession, auth_headers
 ):
     """
     Tests buying an item that doesn't exist in the shop.
@@ -113,15 +108,13 @@ async def test_buy_nonexistent_shop_item_returns_404(
     db_session.add(user)
     await db_session.commit()
 
-    response = await auth_client.post(
-        "/api/v1/shop/buy/9999", params={"user_id": user.id}
-    )
+    response = await client.post("/api/v1/shop/buy/9999", headers=auth_headers(user))
     assert response.status_code == 404
 
 
 @pytest.mark.asyncio
 async def test_buy_out_of_stock_returns_400(
-    auth_client: AsyncClient, db_session: AsyncSession
+    client: AsyncClient, db_session: AsyncSession, auth_headers
 ):
     """
     Tests buying an item that is out of stock.
@@ -137,8 +130,8 @@ async def test_buy_out_of_stock_returns_400(
     db_session.add(shop_item)
     await db_session.commit()
 
-    response = await auth_client.post(
-        f"/api/v1/shop/buy/{shop_item.id}", params={"user_id": user.id}
+    response = await client.post(
+        f"/api/v1/shop/buy/{shop_item.id}", headers=auth_headers(user)
     )
     assert response.status_code == 400
     assert "Out of stock" in response.json()["detail"]
@@ -146,7 +139,7 @@ async def test_buy_out_of_stock_returns_400(
 
 @pytest.mark.asyncio
 async def test_buy_reduces_stock_by_one(
-    auth_client: AsyncClient, db_session: AsyncSession
+    client: AsyncClient, db_session: AsyncSession, auth_headers
 ):
     """
     Tests that buying an item reduces its stock by one.
@@ -166,9 +159,7 @@ async def test_buy_reduces_stock_by_one(
     db_session.add(shop_item)
     await db_session.commit()
 
-    await auth_client.post(
-        f"/api/v1/shop/buy/{shop_item.id}", params={"user_id": user.id}
-    )
+    await client.post(f"/api/v1/shop/buy/{shop_item.id}", headers=auth_headers(user))
 
     await db_session.refresh(shop_item)
     assert shop_item.stock == 9
@@ -176,7 +167,7 @@ async def test_buy_reduces_stock_by_one(
 
 @pytest.mark.asyncio
 async def test_buy_item_outside_availability_window_returns_400(
-    auth_client: AsyncClient, db_session: AsyncSession
+    client: AsyncClient, db_session: AsyncSession, auth_headers
 ):
     """
     Tests buying an item outside its available date range.
@@ -203,8 +194,8 @@ async def test_buy_item_outside_availability_window_returns_400(
     db_session.add(shop_item)
     await db_session.commit()
 
-    response = await auth_client.post(
-        f"/api/v1/shop/buy/{shop_item.id}", params={"user_id": user.id}
+    response = await client.post(
+        f"/api/v1/shop/buy/{shop_item.id}", headers=auth_headers(user)
     )
     assert response.status_code == 400
     assert "Item not currently available" in response.json()["detail"]

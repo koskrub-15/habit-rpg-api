@@ -1,6 +1,7 @@
 from fastapi import APIRouter, Depends
 from sqlalchemy.ext.asyncio import AsyncSession
 
+from apps.api.deps import get_current_user
 from apps.api.router_generator import RouterFactory
 from apps.CRUD.from_models.store_rotation import (
     shop_item_crud,
@@ -9,6 +10,7 @@ from apps.CRUD.from_models.store_rotation import (
 )
 from apps.CRUD.from_models.user import user_crud
 from apps.db.session import get_db
+from apps.models.user import User
 from apps.schemas.store_rotation import (
     ShopItemCreate,
     ShopItemResponse,
@@ -34,6 +36,7 @@ shop_rotation_factory = RouterFactory(
     resource_name_plural="shop_rotations",
     tag="Store",
     prefix="/shop_rotations",
+    current_user_dependency=Depends(get_current_user),
 )
 
 shop_item_factory = RouterFactory(
@@ -46,6 +49,7 @@ shop_item_factory = RouterFactory(
     resource_name_plural="shop_items",
     tag="Store",
     prefix="/shop_items",
+    current_user_dependency=Depends(get_current_user),
 )
 
 shop_rotation_item_factory = RouterFactory(
@@ -58,6 +62,7 @@ shop_rotation_item_factory = RouterFactory(
     resource_name_plural="shop_rotation_items",
     tag="Store",
     prefix="/shop_rotation_items",
+    current_user_dependency=Depends(get_current_user),
 )
 
 
@@ -72,8 +77,8 @@ shop_router = APIRouter(prefix="/shop", tags=["Shop"])
 @shop_router.post("/buy/{shop_item_id}")
 async def buy_item(
     shop_item_id: int,
-    user_id: int,
     db: AsyncSession = Depends(get_db),
+    current_user: User = Depends(get_current_user),
 ):
     """Buy an item from the shop."""
-    return await user_crud.buy_item(db, user_id, shop_item_id)
+    return await user_crud.buy_item(db, current_user.id, shop_item_id)

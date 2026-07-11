@@ -1,3 +1,4 @@
+import pytest
 import pytest_asyncio
 from httpx import AsyncClient, ASGITransport
 from sqlalchemy.ext.asyncio import AsyncSession, create_async_engine
@@ -79,6 +80,20 @@ async def auth_client_fixture(client: AsyncClient, test_user: User) -> AsyncClie
     access_token = create_access_token(subject=test_user.id)
     client.headers.update({"Authorization": f"Bearer {access_token}"})
     return client
+
+
+@pytest.fixture
+def auth_headers():
+    """
+    Returns a callable that builds an Authorization header for an arbitrary user,
+    for tests that need to act as several different authenticated users.
+    """
+
+    def _headers(user: User) -> dict:
+        access_token = create_access_token(subject=user.id)
+        return {"Authorization": f"Bearer {access_token}"}
+
+    return _headers
 
 
 @pytest_asyncio.fixture

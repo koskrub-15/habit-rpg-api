@@ -1,3 +1,6 @@
+from fastapi import Depends
+
+from apps.api.deps import get_current_user
 from apps.CRUD.from_models.item import item_crud
 from apps.schemas.item import (
     ItemCreate,
@@ -17,6 +20,7 @@ item_factory = RouterFactory(
     resource_name_plural="items",
     tag="Items",
     prefix="/items",
+    current_user_dependency=Depends(get_current_user),
 )
 
 router = item_factory.create_router()
