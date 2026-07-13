@@ -1,17 +1,17 @@
 # Habit RPG API — CLAUDE.md
 
-Habitica-подобный RPG бэкенд: задачи и привычки дают опыт и золото, есть инвентарь, экипировка, магазин, достижения, друзья.
+A Habitica-style RPG backend: tasks and habits grant experience and gold; there is an inventory, equipment, a shop, achievements, and friends.
 
-## Цели проекта
+## Project goals
 
-- **Открытый пет-проект** — довести до публичного репо: чистый код, документация, всё понятно стороннему человеку.
-- **Освоить стек** — глубоко понять всё что используется: FastAPI, SQLAlchemy async, Pydantic v2, JWT, тестирование, линтеры, git-воркфлоу.
+- **Open pet project** — bring it to a public repo: clean code, documentation, everything understandable to an outsider.
+- **Master the stack** — deeply understand everything in use: FastAPI, SQLAlchemy async, Pydantic v2, JWT, testing, linters, git workflow.
 
-## Как запустить
+## How to run
 
 ```bash
 uv run uvicorn apps.main:app --reload   # dev server → http://localhost:8000
-uv run pytest tests/ -v                  # 173 теста, SQLite in-memory
+uv run pytest tests/ -v                  # 217 tests, SQLite in-memory
 ```
 
 Swagger UI: `http://localhost:8000/docs`
@@ -19,91 +19,98 @@ Swagger UI: `http://localhost:8000/docs`
 ### Docker (dev)
 
 ```bash
-cp compose.override.dev.yaml compose.override.yaml   # один раз локально
-docker compose up --build                             # поднять app + PostgreSQL
-docker compose watch                                  # hot-reload при изменениях
+cp compose.override.dev.yaml compose.override.yaml   # once, locally
+docker compose up --build                             # bring up app + PostgreSQL
+docker compose watch                                  # hot-reload on changes
 ```
 
-`compose.override.yaml` в `.gitignore` — не коммитится. Основан на `compose.override.dev.yaml`.
+`compose.override.yaml` is in `.gitignore` — not committed. Based on `compose.override.dev.yaml`.
 
 ---
 
 ## Git workflow
 
-Коммиты прямо в `main` заблокированы хуком `no-commit-to-branch`. Работаем в ветках:
+Commits straight to `main` are blocked by the `no-commit-to-branch` hook. We work in branches:
 
 ```bash
-git checkout -b feature/my-feature   # новая ветка
-git add . && git commit              # pre-commit запустится автоматически
+git checkout -b feature/my-feature   # new branch
+git add . && git commit              # pre-commit runs automatically
 git push origin feature/my-feature
-# → PR на GitHub → merge в main
+# → PR on GitHub → merge into main
 ```
 
-Текущая рабочая ветка: **`opus_magnum`**
+Current working branch: **`opus_magnum`**
 
-### Pre-commit хуки
+### CI (GitHub Actions)
 
-| Хук                         | Статус | Что делает                                               |
-| --------------------------- | ------ | -------------------------------------------------------- |
-| `uv-lock`                   | ✅     | Проверяет актуальность `uv.lock`                         |
-| `pre-commit-update`         | ✅     | Обновляет версии хуков                                   |
-| `ruff`                      | ✅     | Линтер Python (автофикс)                                 |
-| `ruff-format`               | ✅     | Форматтер Python                                         |
-| `mypy`                      | ✅     | Статическая типизация                                    |
-| `prettier`                  | ✅     | Форматтер YAML/MD/JSON                                   |
-| `trailing-whitespace`       | ✅     | Убирает пробелы в конце строк                            |
-| `check-yaml` / `check-toml` | ✅     | Валидация конфигов                                       |
-| `debug-statements`          | ✅     | Нет print/breakpoint в коде                              |
-| `sourcery`                  | 💤     | Закомментирован — нужен токен (`sourcery login`)         |
-| `format-justfile`           | 💤     | Закомментирован — нужен `just` (`sudo dnf install just`) |
+`.github/workflows/ci.yml` runs on every push to `main` and on every pull request. Two parallel jobs:
 
-### Включить sourcery
+- **`test`** — `setup-uv` (cache keyed on `uv.lock`) → `uv sync --frozen` → `pytest`.
+- **`lint`** — `pre-commit/action` runs all hooks (installs itself independently of `uv sync`).
+
+### Pre-commit hooks
+
+| Hook                        | Status | What it does                                           |
+| --------------------------- | ------ | ------------------------------------------------------ |
+| `uv-lock`                   | ✅     | Checks that `uv.lock` is up to date                    |
+| `pre-commit-update`         | ✅     | Updates hook versions                                  |
+| `ruff`                      | ✅     | Python linter (autofix)                                |
+| `ruff-format`               | ✅     | Python formatter                                       |
+| `mypy`                      | ✅     | Static typing                                          |
+| `prettier`                  | ✅     | YAML/MD/JSON formatter                                 |
+| `trailing-whitespace`       | ✅     | Strips trailing whitespace                             |
+| `check-yaml` / `check-toml` | ✅     | Config validation                                      |
+| `debug-statements`          | ✅     | No print/breakpoint in code                            |
+| `sourcery`                  | 💤     | Commented out — needs a token (`sourcery login`)       |
+| `format-justfile`           | 💤     | Commented out — needs `just` (`sudo dnf install just`) |
+
+### Enable sourcery
 
 ```bash
-# 1. Раскомментировать в .pre-commit-config.yaml
-# 2. Залогиниться:
+# 1. Uncomment it in .pre-commit-config.yaml
+# 2. Log in:
 sourcery login
 ```
 
-## Стек
+## Stack
 
 - **FastAPI** + **SQLAlchemy 2.0 async** + **Pydantic v2**
-- **aiosqlite** (тесты) / **asyncpg** (прод PostgreSQL)
-- **JWT** (python-jose) + **Argon2** (хеширование паролей)
-- **uv** как менеджер пакетов (аналог pip + venv в одном)
+- **aiosqlite** (tests) / **asyncpg** (production PostgreSQL)
+- **JWT** (python-jose) + **Argon2** (password hashing)
+- **uv** as the package manager (pip + venv rolled into one)
 
 ---
 
-## Архитектура
+## Architecture
 
 ```
 apps/
-├── models/      ← SQLAlchemy ORM-модели (таблицы БД)
-├── schemas/     ← Pydantic схемы (валидация входа/выхода)
-├── CRUD/        ← логика работы с БД
-│   ├── base.py              ← BaseCRUD (универсальный)
-│   └── from_models/         ← конкретные CRUD для каждой модели
+├── models/      ← SQLAlchemy ORM models (DB tables)
+├── schemas/     ← Pydantic schemas (input/output validation)
+├── CRUD/        ← database logic
+│   ├── base.py              ← BaseCRUD (generic)
+│   └── from_models/         ← concrete CRUD for each model
 ├── api/
-│   ├── router_generator.py  ← RouterFactory (генератор эндпоинтов)
+│   ├── router_generator.py  ← RouterFactory (endpoint generator)
 │   ├── deps.py              ← get_current_user dependency
-│   └── v1/endpoints/        ← HTTP маршруты
+│   └── v1/endpoints/        ← HTTP routes
 ├── db/
 │   ├── base.py              ← MinimalBase / SimpleBase / Base
 │   └── session.py           ← get_db dependency
 └── core/
-    ├── config.py            ← настройки через pydantic-settings
-    └── security.py          ← JWT + хеширование паролей
+    ├── config.py            ← settings via pydantic-settings
+    └── security.py          ← JWT + password hashing
 ```
 
-Поток запроса: `HTTP → endpoint → CRUD → SQLAlchemy → DB`
+Request flow: `HTTP → endpoint → CRUD → SQLAlchemy → DB`
 
 ---
 
 ## BaseCRUD (`apps/CRUD/base.py`)
 
-`BaseCRUD[Model, CreateSchema, UpdateSchema]` — дженерик-класс. Ты передаёшь SQLAlchemy-модель и Pydantic-схемы один раз, и получаешь готовые методы для работы с БД.
+`BaseCRUD[Model, CreateSchema, UpdateSchema]` is a generic class. You pass the SQLAlchemy model and Pydantic schemas once and get ready-made methods for working with the DB.
 
-### Использование
+### Usage
 
 ```python
 from apps.CRUD.base import BaseCRUD
@@ -117,41 +124,41 @@ class CRUDHabit(BaseCRUD[Habit, HabitCreate, HabitUpdate]):
 habit_crud = CRUDHabit()
 ```
 
-### Методы
+### Methods
 
-| Метод                                                                         | Что делает                                                      |
-| ----------------------------------------------------------------------------- | --------------------------------------------------------------- |
-| `create(db, obj_in)`                                                          | Создать запись (принимает схему или dict), делает commit        |
-| `get(db, id, relationships=[...])`                                            | Получить по ID, опционально загружая связи через `selectinload` |
-| `get_multi(db, skip, limit, filters, search_fields, order_by, relationships)` | Список с пагинацией, фильтрами, LIKE-поиском, сортировкой       |
-| `update(db, id, obj_in)`                                                      | Обновить — только переданные поля (`exclude_unset=True`)        |
-| `delete(db, id)`                                                              | Удалить по ID                                                   |
-| `count(db, filters)`                                                          | Подсчёт записей                                                 |
-| `bulk_create(db, objs_in)`                                                    | Массовое создание                                               |
-| `get_or_create(db, **kwargs)`                                                 | Найти или создать, возвращает `(объект, был_создан)`            |
+| Method                                                                        | What it does                                                     |
+| ----------------------------------------------------------------------------- | ---------------------------------------------------------------- |
+| `create(db, obj_in)`                                                          | Create a record (accepts a schema or dict), commits              |
+| `get(db, id, relationships=[...])`                                            | Get by ID, optionally eager-loading relations via `selectinload` |
+| `get_multi(db, skip, limit, filters, search_fields, order_by, relationships)` | List with pagination, filters, LIKE search, sorting              |
+| `update(db, id, obj_in)`                                                      | Update — only the passed fields (`exclude_unset=True`)           |
+| `delete(db, id)`                                                              | Delete by ID                                                     |
+| `count(db, filters)`                                                          | Count records                                                    |
+| `bulk_create(db, objs_in)`                                                    | Bulk create                                                      |
+| `get_or_create(db, **kwargs)`                                                 | Find or create, returns `(object, was_created)`                  |
 
-### Расширение через override
+### Extending via override
 
-Чтобы добавить бизнес-логику поверх стандартного CRUD — переопредели метод:
+To add business logic on top of the standard CRUD, override the method:
 
 ```python
 class CRUDTask(BaseCRUD[Task, TaskCreate, TaskUpdate]):
     async def update(self, db, *, id, obj_in, commit=True):
         task = await super().update(db, id=id, obj_in=obj_in, commit=commit)
-        # Создаём запись в логе при завершении задачи
+        # Write a log entry when the task is completed
         if update_data.get("status") == "COMPLETED":
             db.add(ActivityLog(user_id=task.user_id, ...))
             await db.commit()
         return task
 ```
 
-### Загрузка связей
+### Loading relations
 
 ```python
-# Загрузить задачу вместе с подзадачами
+# Load a task together with its sub-tasks
 task = await task_crud.get(db, task_id, relationships=["sub_tasks"])
 
-# Вложенные связи (через точку)
+# Nested relations (via dot notation)
 user = await user_crud.get(db, user_id, relationships=["tasks.sub_tasks"])
 ```
 
@@ -159,155 +166,155 @@ user = await user_crud.get(db, user_id, relationships=["tasks.sub_tasks"])
 
 ## RouterFactory (`apps/api/router_generator.py`)
 
-Фабрика, которая генерирует **8 стандартных CRUD-эндпоинтов** за один вызов. Без неё пришлось бы вручную писать одинаковый код для каждого ресурса.
+A factory that generates **8 standard CRUD endpoints** in a single call. Without it you would have to hand-write the same boilerplate for every resource.
 
-### Использование
+### Usage
 
 ```python
 from apps.api.router_generator import RouterFactory
 
 factory = RouterFactory(
-    crud=habit_crud,                          # экземпляр BaseCRUD
-    create_schema=HabitCreate,                # Pydantic схема для POST
-    update_schema=HabitUpdate,                # Pydantic схема для PATCH
-    response_schema=HabitResponse,            # полный ответ (с вложенными объектами)
-    response_short_schema=HabitResponseShort, # краткий ответ (для списков)
+    crud=habit_crud,                          # BaseCRUD instance
+    create_schema=HabitCreate,                # Pydantic schema for POST
+    update_schema=HabitUpdate,                # Pydantic schema for PATCH
+    response_schema=HabitResponse,            # full response (with nested objects)
+    response_short_schema=HabitResponseShort, # short response (for lists)
     resource_name="habit",
     resource_name_plural="habits",
     tag="Habits",
     prefix="/habits",
     current_user_dependency=Depends(get_current_user),
-    # with_relations_method="get_user_with_relations"  # кастомный метод загрузки, если нужен
+    # with_relations_method="get_user_with_relations"  # custom loading method, if needed
 )
 router = factory.create_router()
 ```
 
-### Что генерируется
+### What gets generated
 
-| Метод  | Путь                  | Описание                                                                |
-| ------ | --------------------- | ----------------------------------------------------------------------- |
-| POST   | `/habits/`            | Создать                                                                 |
-| GET    | `/habits/`            | Список (пагинация, фильтр `?name=`, сортировка `?order_by=-created_at`) |
-| GET    | `/habits/count`       | Количество                                                              |
-| GET    | `/habits/{id}`        | Получить по ID                                                          |
-| PATCH  | `/habits/{id}`        | Обновить (только переданные поля)                                       |
-| DELETE | `/habits/{id}`        | Удалить                                                                 |
-| GET    | `/habits/{id}/exists` | Проверить существование                                                 |
-| POST   | `/habits/bulk`        | Массовое создание (до 100 шт.)                                          |
+| Method | Path                  | Description                                                         |
+| ------ | --------------------- | ------------------------------------------------------------------- |
+| POST   | `/habits/`            | Create                                                              |
+| GET    | `/habits/`            | List (pagination, filter `?name=`, sorting `?order_by=-created_at`) |
+| GET    | `/habits/count`       | Count                                                               |
+| GET    | `/habits/{id}`        | Get by ID                                                           |
+| PATCH  | `/habits/{id}`        | Update (only the passed fields)                                     |
+| DELETE | `/habits/{id}`        | Delete                                                              |
+| GET    | `/habits/{id}/exists` | Check existence                                                     |
+| POST   | `/habits/bulk`        | Bulk create (up to 100)                                             |
 
-### Как RouterFactory загружает связи автоматически
+### How RouterFactory loads relations automatically
 
-RouterFactory смотрит на поля `response_schema` — если поле аннотировано как Pydantic `BaseModel` (не `str`/`int`/etc.), он считает его связанной сущностью и загружает через `selectinload`. Поэтому достаточно добавить поле в Response-схему:
+RouterFactory inspects the fields of `response_schema` — if a field is annotated as a Pydantic `BaseModel` (not `str`/`int`/etc.), it treats it as a related entity and loads it via `selectinload`. So it is enough to add the field to the Response schema:
 
 ```python
 class ShopItemResponse(ShopItemResponseShort):
-    item: Optional[ItemResponseShort] = None  # ← RouterFactory автоматически сделает selectinload
+    item: Optional[ItemResponseShort] = None  # ← RouterFactory will selectinload automatically
 ```
 
-### Добавление кастомных эндпоинтов поверх RouterFactory
+### Adding custom endpoints on top of RouterFactory
 
 ```python
 router = factory.create_router()
 
-@router.post("/{habit_id}/complete")  # добавляем свой эндпоинт
+@router.post("/{habit_id}/complete")  # add your own endpoint
 async def complete_habit(habit_id: int, ...):
     ...
 ```
 
-### Безопасность
+### Security
 
-RouterFactory **не делает** проверок владельца — это чисто механический CRUD. Security-логика пишется вручную только в специфических эндпоинтах (например, `complete_activity` проверяет что пользователь completает своё задание).
+RouterFactory does **not** perform ownership checks — it is purely mechanical CRUD. Security logic is written by hand only in specific endpoints (for example, `complete_activity` checks that the user is completing their own task).
 
 ---
 
-## Иерархия базовых моделей (`apps/db/base.py`)
+## Base model hierarchy (`apps/db/base.py`)
 
 ```
 MinimalBase   ← id, created_at, updated_at
     └── SimpleBase  ← + name (NOT NULL), description (nullable)
-            └── Base  ← алиас SimpleBase (для совместимости)
+            └── Base  ← alias of SimpleBase (for compatibility)
 ```
 
-**Правило выбора:**
+**Choosing rule:**
 
-- `MinimalBase` → таблицы-связки и логи, у которых нет смыслового "имени":
+- `MinimalBase` → junction tables and logs that have no meaningful "name":
   - `Friendship`, `InventoryItem`, `EquippedItem`, `ActivityLog`
-- `SimpleBase` / `Base` → доменные сущности с именем:
+- `SimpleBase` / `Base` → domain entities with a name:
   - `User`, `Task`, `Habit`, `Item`, `Achievement`, `Notification`, `ShopItem`, `Reward`...
 
-Ошибка `NOT NULL constraint failed: *.name` означает что junction-таблица ошибочно наследует `SimpleBase`.
+A `NOT NULL constraint failed: *.name` error means a junction table wrongly inherits from `SimpleBase`.
 
 ---
 
-## Схемы Pydantic (`apps/schemas/`)
+## Pydantic schemas (`apps/schemas/`)
 
-Паттерн для каждого ресурса — 4 класса:
+The pattern for each resource is 4 classes:
 
 ```python
-class HabitCreate(SimpleBaseSchemaCreate):   # для POST — name обязателен
+class HabitCreate(SimpleBaseSchemaCreate):   # for POST — name is required
     habit_type: HabitType = HabitType.NEUTRAL
-    user_id: Optional[int] = None            # RouterFactory подставит из токена если None
+    user_id: Optional[int] = None            # RouterFactory fills it from the token if None
 
-class HabitUpdate(BaseModel):                # для PATCH — всё Optional
+class HabitUpdate(BaseModel):                # for PATCH — everything Optional
     name: Optional[str] = None
     habit_type: Optional[HabitType] = None
     model_config = ConfigDict(from_attributes=True)
 
-class HabitResponseShort(BaseSchemaResponse):  # для списков — минимум полей
+class HabitResponseShort(BaseSchemaResponse):  # for lists — minimal fields
     habit_type: HabitType
     streak: int
 
-class HabitResponse(HabitResponseShort):     # полный ответ — добавляем вложенные объекты
+class HabitResponse(HabitResponseShort):     # full response — add nested objects
     user: Optional[UserResponseShort] = None
 ```
 
-**Обязательно** используй `model_config = ConfigDict(from_attributes=True)` — без этого Pydantic не умеет читать из ORM-объектов SQLAlchemy.
+**Always** use `model_config = ConfigDict(from_attributes=True)` — without it Pydantic cannot read from SQLAlchemy ORM objects.
 
-Исключение: если модель без `name` (использует `MinimalBase`) — наследуй от `BaseModel` напрямую, а не от `BaseSchemaResponse`.
+Exception: if a model has no `name` (uses `MinimalBase`), inherit from `BaseModel` directly instead of `BaseSchemaResponse`.
 
 ---
 
-## Аутентификация
+## Authentication
 
-- `apps/api/deps.py` — `get_current_user`: читает JWT из `Authorization: Bearer <token>` заголовка, возвращает объект `User`
+- `apps/api/deps.py` — `get_current_user`: reads the JWT from the `Authorization: Bearer <token>` header and returns a `User` object
 - `apps/core/security.py` — `create_access_token`, `verify_password`, `get_password_hash`
-- RouterFactory принимает `current_user_dependency=Depends(get_current_user)` и пробрасывает его в каждый эндпоинт
+- RouterFactory accepts `current_user_dependency=Depends(get_current_user)` and passes it into every endpoint
 
-Если `current_user_dependency=None` — эндпоинты публичные (без аутентификации).
+If `current_user_dependency=None`, the endpoints are public (no authentication).
 
 ---
 
-## Тесты (`tests/`)
+## Tests (`tests/`)
 
-Все тесты используют SQLite in-memory — никакой реальной БД не нужно.
+All tests use SQLite in-memory — no real database needed.
 
-### Фикстуры (`conftest.py`)
+### Fixtures (`conftest.py`)
 
-| Фикстура                     | Что даёт                                                              |
-| ---------------------------- | --------------------------------------------------------------------- |
-| `db_session`                 | Async SQLite сессия, откатывается после каждого теста                 |
-| `client`                     | FastAPI TestClient с тестовой БД                                      |
-| `test_user`                  | Создан пользователь в БД                                              |
-| `auth_client`                | TestClient с `Authorization: Bearer <jwt>` заголовком для `test_user` |
-| `create_test_user_for_tasks` | Отдельный пользователь (не `test_user`) для тестирования ресурсов     |
+| Fixture                      | What it provides                                                        |
+| ---------------------------- | ----------------------------------------------------------------------- |
+| `db_session`                 | Async SQLite session, rolled back after each test                       |
+| `client`                     | FastAPI TestClient with the test DB                                     |
+| `test_user`                  | A user created in the DB                                                |
+| `auth_client`                | TestClient with an `Authorization: Bearer <jwt>` header for `test_user` |
+| `create_test_user_for_tasks` | A separate user (not `test_user`) for testing resources                 |
 
-### Паттерн тестов
+### Test pattern
 
-Тесты создают ресурсы с `user_id` другого пользователя (`create_test_user_for_X`), но делают запросы через `auth_client` (от `test_user`). RouterFactory это разрешает — он не проверяет владельца.
+Tests create resources with another user's `user_id` (`create_test_user_for_X`) but make requests through `auth_client` (as `test_user`). RouterFactory allows this — it does not check ownership.
 
 ```python
 def test_create_habit(auth_client, create_test_user_for_habits):
     response = auth_client.post("/api/v1/habits/", json={
         "name": "Exercise",
-        "user_id": create_test_user_for_habits.id,  # другой пользователь!
+        "user_id": create_test_user_for_habits.id,  # a different user!
     })
     assert response.status_code == 201
 ```
 
-### Запуск
+### Running
 
 ```bash
-uv run pytest tests/ -v          # все тесты
-uv run pytest tests/api/v1/test_habits_endpoints.py -v  # конкретный файл
-uv run pytest -k "test_create"   # по названию
+uv run pytest tests/ -v          # all tests
+uv run pytest tests/api/v1/test_habits_endpoints.py -v  # a specific file
+uv run pytest -k "test_create"   # by name
 ```
