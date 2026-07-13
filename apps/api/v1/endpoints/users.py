@@ -1,4 +1,4 @@
-from typing import Any, List
+from typing import List
 
 from fastapi import APIRouter, Depends, HTTPException, status
 from sqlalchemy.ext.asyncio import AsyncSession
@@ -236,7 +236,9 @@ async def remove_from_inventory(
             detail="Not enough permissions to modify another user's inventory",
         )
 
-    await user_crud.remove_from_inventory(db, user_id=user_id, item_id=item_id, quantity=quantity)
+    await user_crud.remove_from_inventory(
+        db, user_id=user_id, item_id=item_id, quantity=quantity
+    )
     return {"detail": "Item removed successfully"}
 
 
@@ -254,7 +256,9 @@ async def grant_achievement(
     """
     Manually grant an achievement to a user.
     """
-    return await user_crud.grant_achievement(db, user_id=user_id, achievement_id=achievement_id)
+    return await user_crud.grant_achievement(
+        db, user_id=user_id, achievement_id=achievement_id
+    )
 
 
 @router.get(

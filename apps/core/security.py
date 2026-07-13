@@ -69,11 +69,11 @@ def decode_access_token(token: str) -> str | None:
         return None
 
 
-def decode_refresh_token(token: str) -> str | None:
-    """Decode a JWT refresh token and return the subject claim.
+def decode_refresh_token(token: str) -> dict | None:
+    """Decode a JWT refresh token and return the full payload.
 
     Returns:
-        User id as string, or None if token is invalid/expired.
+        Payload dict with 'sub', 'jti', 'exp' keys, or None if invalid/expired.
     """
     try:
         payload = jwt.decode(
@@ -81,6 +81,6 @@ def decode_refresh_token(token: str) -> str | None:
         )
         if payload.get("type") != "refresh":
             return None
-        return payload.get("sub")
+        return payload
     except JWTError:
         return None

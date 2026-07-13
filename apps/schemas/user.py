@@ -2,20 +2,37 @@ from __future__ import annotations
 
 from typing import List, Optional
 
-from pydantic import BaseModel, ConfigDict
+from pydantic import BaseModel, ConfigDict, field_validator
 
 from apps.models.user import SlotType
 from apps.schemas.achievement import AchievementResponseShort
 from apps.schemas.base import BaseSchemaResponse, SimpleBaseSchemaCreate
 from apps.schemas.habit import HabitResponseShort
 from apps.schemas.item import ItemResponseShort
-from apps.schemas.notification import NotificationResponse, UserNotificationPreferenceResponse
-from apps.schemas.task import TaskResponse, TaskResponseShort
+from apps.schemas.notification import (
+    NotificationResponse,
+    UserNotificationPreferenceResponse,
+)
+from apps.schemas.task import TaskResponse
 
 
 class UserCreate(SimpleBaseSchemaCreate):
     email: str
     password: str
+
+    @field_validator("email")
+    @classmethod
+    def validate_email(cls, v: str) -> str:
+        if "@" not in v or "." not in v.split("@")[-1]:
+            raise ValueError("invalid email address")
+        return v.lower()
+
+    @field_validator("password")
+    @classmethod
+    def validate_password(cls, v: str) -> str:
+        if len(v) < 8:
+            raise ValueError("password must be at least 8 characters")
+        return v
 
 
 class UserUpdate(BaseModel):

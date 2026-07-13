@@ -152,13 +152,16 @@ async def test_logout_invalidates_token(client: AsyncClient, db_session: AsyncSe
         "/api/v1/auth/login",
         data={"username": "logout@example.com", "password": "password123"},
     )
-    access_token = login_response.json()["access_token"]
+    login_response.json()["access_token"]
+    refresh_token = login_response.json()["refresh_token"]
 
-    headers = {"Authorization": f"Bearer {access_token}"}
-    response = await client.post("/api/v1/auth/logout", headers=headers)
+    response = await client.post(
+        "/api/v1/auth/logout", json={"refresh_token": refresh_token}
+    )
     assert response.status_code == 200
 
-    # In a full implementation with blacklist, this would fail.
-    # For now, token is still valid JWT-wise until expiry.
-    # protected_response = await client.get("/api/v1/users/me", headers=headers)
-    # assert protected_response.status_code == 401
+    # Revoked refresh token must not produce a new access token
+    refresh_response = await client.post(
+        "/api/v1/auth/refresh", json={"refresh_token": refresh_token}
+    )
+    assert refresh_response.status_code == 401

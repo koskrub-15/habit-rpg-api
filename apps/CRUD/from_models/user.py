@@ -11,7 +11,7 @@ from apps.models.achievement import Achievement
 from apps.models.habit import Habit, HabitStatus, HabitType
 from apps.models.item import Item, ItemType
 from apps.models.store_rotation import ShopItem
-from apps.models.task import Size, SubTask, Task, TaskStatus
+from apps.models.task import Size, Task, TaskStatus
 from apps.models.user import (
     EquippedItem,
     Friendship,
@@ -439,14 +439,17 @@ class CRUDUser(BaseCRUD[User, UserCreate, UserUpdate]):
                     status_code=status.HTTP_404_NOT_FOUND, detail="Task not found"
                 )
             reward = self._apply_task_reward(user, task)
-            
+
             from apps.models.activity_log import ActivityLog, ActivityType
-            db.add(ActivityLog(
-                user_id=user_id,  # type: ignore
-                activity_type=ActivityType.TASK_COMPLETED,  # type: ignore
-                task_id=activity_id,  # type: ignore
-                description=f"Completed task: {task.name}"  # type: ignore
-            ))
+
+            db.add(
+                ActivityLog(
+                    user_id=user_id,  # type: ignore
+                    activity_type=ActivityType.TASK_COMPLETED,  # type: ignore
+                    task_id=activity_id,  # type: ignore
+                    description=f"Completed task: {task.name}",  # type: ignore
+                )
+            )
 
         elif activity_type == "habit":
             result = await db.execute(
@@ -458,14 +461,17 @@ class CRUDUser(BaseCRUD[User, UserCreate, UserUpdate]):
                     status_code=status.HTTP_404_NOT_FOUND, detail="Habit not found"
                 )
             reward = self._apply_habit_reward(user, habit, performed)
-            
+
             from apps.models.activity_log import ActivityLog, ActivityType
-            db.add(ActivityLog(
-                user_id=user_id,  # type: ignore
-                activity_type=ActivityType.HABIT_COMPLETED,  # type: ignore
-                habit_id=activity_id,  # type: ignore
-                description=f"Recorded habit: {habit.name} (performed={performed})"  # type: ignore
-            ))
+
+            db.add(
+                ActivityLog(
+                    user_id=user_id,  # type: ignore
+                    activity_type=ActivityType.HABIT_COMPLETED,  # type: ignore
+                    habit_id=activity_id,  # type: ignore
+                    description=f"Recorded habit: {habit.name} (performed={performed})",  # type: ignore
+                )
+            )
 
         else:
             raise HTTPException(
@@ -551,10 +557,18 @@ class CRUDUser(BaseCRUD[User, UserCreate, UserUpdate]):
         self, db: AsyncSession, user_id: int, item_id: int, quantity: int = 1
     ):
         """Remove an item from the user's inventory."""
-        user = await self.get(db, user_id, raise_not_found=True, relationships=["_inventory_items"])
+        user = await self.get(
+            db, user_id, raise_not_found=True, relationships=["_inventory_items"]
+        )
+        assert user is not None  # raise_not_found=True raises 404 before returning None
 
         inventory_item = next(
-            (inv_item for inv_item in user._inventory_items if inv_item.item_id == item_id), None
+            (
+                inv_item
+                for inv_item in user._inventory_items
+                if inv_item.item_id == item_id
+            ),
+            None,
         )
 
         if not inventory_item or inventory_item.quantity < quantity:
@@ -663,7 +677,9 @@ class CRUDUser(BaseCRUD[User, UserCreate, UserUpdate]):
         await db.delete(equipped_item_to_remove)
         await db.commit()
 
-    async def get_inventory(self, db: AsyncSession, user_id: int) -> List[InventoryItem]:
+    async def get_inventory(
+        self, db: AsyncSession, user_id: int
+    ) -> List[InventoryItem]:
         """Get all inventory items for a user."""
         result = await db.execute(
             select(InventoryItem)
@@ -672,7 +688,9 @@ class CRUDUser(BaseCRUD[User, UserCreate, UserUpdate]):
         )
         return list(result.scalars().all())
 
-    async def get_equipped_items(self, db: AsyncSession, user_id: int) -> List[EquippedItem]:
+    async def get_equipped_items(
+        self, db: AsyncSession, user_id: int
+    ) -> List[EquippedItem]:
         """Get all equipped items for a user."""
         result = await db.execute(
             select(EquippedItem)

@@ -21,8 +21,8 @@ class ShopItem(SimpleBase):
     stock = Column(Integer, nullable=True, default=1)
     # required_level = Column(Integer, default=0)
     # is_available = Column(Boolean, default=True)
-    available_from = Column(DateTime, nullable=True)
-    available_until = Column(DateTime, nullable=True)
+    available_from = Column(DateTime(timezone=True), nullable=True)
+    available_until = Column(DateTime(timezone=True), nullable=True)
 
     item = relationship(Item, back_populates="shop_items")
     shop_rotation_items = relationship(
@@ -35,8 +35,8 @@ class ShopItem(SimpleBase):
 
 class ShopRotation(SimpleBase):
     __tablename__ = "shop_rotations"
-    start_date = Column(DateTime, nullable=False)
-    end_date = Column(DateTime, nullable=False)
+    start_date = Column(DateTime(timezone=True), nullable=False)
+    end_date = Column(DateTime(timezone=True), nullable=False)
     theme = Column(Enum(ItemTheme), nullable=True)
     rotation_items = relationship(
         "ShopRotationItem", back_populates="shop_rotation", cascade="all, delete-orphan"

@@ -149,7 +149,9 @@ async def test_get_sub_tasks_pagination(
             "/api/v1/sub_tasks/", json=sub_task_payload.model_dump(mode="json")
         )
 
-    response = await auth_client.get("/api/v1/sub_tasks/?skip=1&limit=2&order_by=created_at")
+    response = await auth_client.get(
+        "/api/v1/sub_tasks/?skip=1&limit=2&order_by=created_at"
+    )
     assert response.status_code == 200
     response_data = response.json()
     assert len(response_data) == 2
@@ -230,7 +232,7 @@ async def test_update_sub_task(
 
     assert response_data["id"] == sub_task_id
     assert response_data["name"] == create_update_sub_task_payload.name
-    assert response_data["status"] == create_update_sub_task_payload.status.value
+    assert response_data["status"] == create_update_sub_task_payload.status.value  # type: ignore[union-attr]
 
     updated_sub_task = await db_session.get(SubTask, sub_task_id)
     assert updated_sub_task.name == create_update_sub_task_payload.name

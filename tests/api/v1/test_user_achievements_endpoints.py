@@ -8,7 +8,9 @@ from apps.models.habit import Habit, HabitStatus, HabitType
 
 
 @pytest.mark.asyncio
-async def test_grant_achievement_to_user(auth_client: AsyncClient, db_session: AsyncSession):
+async def test_grant_achievement_to_user(
+    auth_client: AsyncClient, db_session: AsyncSession
+):
     """
     Tests manual granting of an achievement to a user.
     """

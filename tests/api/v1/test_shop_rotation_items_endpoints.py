@@ -438,11 +438,15 @@ async def test_check_shop_rotation_item_exists(
     )
     sri_id = create_response.json()["id"]
 
-    response_exists = await auth_client.get(f"/api/v1/shop_rotation_items/{sri_id}/exists")
+    response_exists = await auth_client.get(
+        f"/api/v1/shop_rotation_items/{sri_id}/exists"
+    )
     assert response_exists.status_code == 200
     assert response_exists.json()["exists"] is True
 
-    response_not_exists = await auth_client.get("/api/v1/shop_rotation_items/99999/exists")
+    response_not_exists = await auth_client.get(
+        "/api/v1/shop_rotation_items/99999/exists"
+    )
     assert response_not_exists.status_code == 200
     assert response_not_exists.json()["exists"] is False
 
@@ -479,7 +483,9 @@ async def test_bulk_create_shop_rotation_items(
         ).model_dump(mode="json"),
     ]
 
-    response = await auth_client.post("/api/v1/shop_rotation_items/bulk", json=sri_payloads)
+    response = await auth_client.post(
+        "/api/v1/shop_rotation_items/bulk", json=sri_payloads
+    )
     assert response.status_code == 201
     response_data = response.json()
     assert isinstance(response_data, list)

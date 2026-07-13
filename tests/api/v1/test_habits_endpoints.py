@@ -5,7 +5,6 @@ from sqlalchemy.ext.asyncio import AsyncSession
 from apps.models.habit import Habit, HabitType, HabitStatus
 from apps.models.user import User
 from apps.schemas.habit import HabitCreate, HabitUpdate
-from apps.schemas.user import UserCreate
 from apps.models.task import Size
 
 
@@ -139,9 +138,13 @@ async def test_get_habits_pagination(
             habit_type=HabitType.POSITIVE,
             habit_size=Size.SMALL,
         )
-        await auth_client.post("/api/v1/habits/", json=habit_payload.model_dump(mode="json"))
+        await auth_client.post(
+            "/api/v1/habits/", json=habit_payload.model_dump(mode="json")
+        )
 
-    response = await auth_client.get("/api/v1/habits/?skip=1&limit=2&order_by=created_at")
+    response = await auth_client.get(
+        "/api/v1/habits/?skip=1&limit=2&order_by=created_at"
+    )
     assert response.status_code == 200
     response_data = response.json()
     assert len(response_data) == 2
@@ -242,7 +245,7 @@ async def test_update_habit(
 
     assert response_data["id"] == habit_id
     assert response_data["name"] == create_update_habit_payload.name
-    assert response_data["status"] == create_update_habit_payload.status.value
+    assert response_data["status"] == create_update_habit_payload.status.value  # type: ignore[union-attr]
 
     updated_habit = await db_session.get(Habit, habit_id)
     assert updated_habit.name == create_update_habit_payload.name

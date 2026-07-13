@@ -26,7 +26,9 @@ class User(SimpleBase):
     __tablename__ = "users"
     email = Column(String(255), unique=True, nullable=False)
     password = Column(String(255), nullable=False)
-    last_login = Column(DateTime, default=lambda: datetime.now(timezone.utc))
+    last_login = Column(
+        DateTime(timezone=True), default=lambda: datetime.now(timezone.utc)
+    )
     health_points = Column(Integer, default=100)
     experience = Column(Integer, default=0)
     gold = Column(Integer, default=0)

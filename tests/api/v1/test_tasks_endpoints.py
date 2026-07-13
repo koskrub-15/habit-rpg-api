@@ -133,9 +133,13 @@ async def test_get_tasks_pagination(
             task_type=TaskType.REGULAR,
             task_size=Size.SMALL,
         )
-        await auth_client.post("/api/v1/tasks/", json=task_payload.model_dump(mode="json"))
+        await auth_client.post(
+            "/api/v1/tasks/", json=task_payload.model_dump(mode="json")
+        )
 
-    response = await auth_client.get("/api/v1/tasks/?skip=1&limit=2&order_by=created_at")
+    response = await auth_client.get(
+        "/api/v1/tasks/?skip=1&limit=2&order_by=created_at"
+    )
     assert response.status_code == 200
     response_data = response.json()
     assert len(response_data) == 2
@@ -215,7 +219,7 @@ async def test_update_task(
 
     assert response_data["id"] == task_id
     assert response_data["name"] == create_update_task_payload.name
-    assert response_data["status"] == create_update_task_payload.status.value
+    assert response_data["status"] == create_update_task_payload.status.value  # type: ignore[union-attr]
 
     updated_task = await db_session.get(Task, task_id)
     assert updated_task.name == create_update_task_payload.name

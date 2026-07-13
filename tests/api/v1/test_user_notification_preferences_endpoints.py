@@ -187,7 +187,9 @@ async def test_get_user_notification_preferences_filter_by_name(
         ),
     )
 
-    response = await auth_client.get("/api/v1/user_notification_preferences/?name=System")
+    response = await auth_client.get(
+        "/api/v1/user_notification_preferences/?name=System"
+    )
     assert response.status_code == 200
     response_data = response.json()
     assert len(response_data) == 1
@@ -218,7 +220,9 @@ async def test_get_user_notification_preference_by_id(
     )
     assert response_data["user_id"] == create_test_user_for_notification_prefs.id
 
-    response_not_found = await auth_client.get("/api/v1/user_notification_preferences/99999")
+    response_not_found = await auth_client.get(
+        "/api/v1/user_notification_preferences/99999"
+    )
     assert response_not_found.status_code == 404
     assert "detail" in response_not_found.json()
     assert (
@@ -291,7 +295,9 @@ async def test_delete_user_notification_preference(
     )
     pref_id = create_response.json()["id"]
 
-    response = await auth_client.delete(f"/api/v1/user_notification_preferences/{pref_id}")
+    response = await auth_client.delete(
+        f"/api/v1/user_notification_preferences/{pref_id}"
+    )
     assert response.status_code == 204
 
     deleted_pref = await db_session.get(UserNotificationPreference, pref_id)
@@ -312,7 +318,9 @@ async def test_get_user_notification_preference_count(
     create_test_user_notification_preference_payload: UserNotificationPreferenceCreate,
 ):
     """Tests the GET /api/v1/user_notification_preferences/count endpoint for retrieving the preference count."""
-    response_initial = await auth_client.get("/api/v1/user_notification_preferences/count")
+    response_initial = await auth_client.get(
+        "/api/v1/user_notification_preferences/count"
+    )
     assert response_initial.status_code == 200
     assert response_initial.json()["count"] == 0
 

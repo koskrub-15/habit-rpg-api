@@ -2,6 +2,11 @@
 
 Habitica-подобный RPG бэкенд: задачи и привычки дают опыт и золото, есть инвентарь, экипировка, магазин, достижения, друзья.
 
+## Цели проекта
+
+- **Открытый пет-проект** — довести до публичного репо: чистый код, документация, всё понятно стороннему человеку.
+- **Освоить стек** — глубоко понять всё что используется: FastAPI, SQLAlchemy async, Pydantic v2, JWT, тестирование, линтеры, git-воркфлоу.
+
 ## Как запустить
 
 ```bash
@@ -10,6 +15,55 @@ uv run pytest tests/ -v                  # 173 теста, SQLite in-memory
 ```
 
 Swagger UI: `http://localhost:8000/docs`
+
+### Docker (dev)
+
+```bash
+cp compose.override.dev.yaml compose.override.yaml   # один раз локально
+docker compose up --build                             # поднять app + PostgreSQL
+docker compose watch                                  # hot-reload при изменениях
+```
+
+`compose.override.yaml` в `.gitignore` — не коммитится. Основан на `compose.override.dev.yaml`.
+
+---
+
+## Git workflow
+
+Коммиты прямо в `main` заблокированы хуком `no-commit-to-branch`. Работаем в ветках:
+
+```bash
+git checkout -b feature/my-feature   # новая ветка
+git add . && git commit              # pre-commit запустится автоматически
+git push origin feature/my-feature
+# → PR на GitHub → merge в main
+```
+
+Текущая рабочая ветка: **`opus_magnum`**
+
+### Pre-commit хуки
+
+| Хук                         | Статус | Что делает                                               |
+| --------------------------- | ------ | -------------------------------------------------------- |
+| `uv-lock`                   | ✅     | Проверяет актуальность `uv.lock`                         |
+| `pre-commit-update`         | ✅     | Обновляет версии хуков                                   |
+| `ruff`                      | ✅     | Линтер Python (автофикс)                                 |
+| `ruff-format`               | ✅     | Форматтер Python                                         |
+| `mypy`                      | ✅     | Статическая типизация                                    |
+| `prettier`                  | ✅     | Форматтер YAML/MD/JSON                                   |
+| `trailing-whitespace`       | ✅     | Убирает пробелы в конце строк                            |
+| `check-yaml` / `check-toml` | ✅     | Валидация конфигов                                       |
+| `debug-statements`          | ✅     | Нет print/breakpoint в коде                              |
+| `sourcery`                  | 💤     | Закомментирован — нужен токен (`sourcery login`)         |
+| `format-justfile`           | 💤     | Закомментирован — нужен `just` (`sudo dnf install just`) |
+
+### Включить sourcery
+
+```bash
+# 1. Раскомментировать в .pre-commit-config.yaml
+# 2. Залогиниться:
+sourcery login
+```
 
 ## Стек
 
@@ -65,16 +119,16 @@ habit_crud = CRUDHabit()
 
 ### Методы
 
-| Метод | Что делает |
-|-------|------------|
-| `create(db, obj_in)` | Создать запись (принимает схему или dict), делает commit |
-| `get(db, id, relationships=[...])` | Получить по ID, опционально загружая связи через `selectinload` |
-| `get_multi(db, skip, limit, filters, search_fields, order_by, relationships)` | Список с пагинацией, фильтрами, LIKE-поиском, сортировкой |
-| `update(db, id, obj_in)` | Обновить — только переданные поля (`exclude_unset=True`) |
-| `delete(db, id)` | Удалить по ID |
-| `count(db, filters)` | Подсчёт записей |
-| `bulk_create(db, objs_in)` | Массовое создание |
-| `get_or_create(db, **kwargs)` | Найти или создать, возвращает `(объект, был_создан)` |
+| Метод                                                                         | Что делает                                                      |
+| ----------------------------------------------------------------------------- | --------------------------------------------------------------- |
+| `create(db, obj_in)`                                                          | Создать запись (принимает схему или dict), делает commit        |
+| `get(db, id, relationships=[...])`                                            | Получить по ID, опционально загружая связи через `selectinload` |
+| `get_multi(db, skip, limit, filters, search_fields, order_by, relationships)` | Список с пагинацией, фильтрами, LIKE-поиском, сортировкой       |
+| `update(db, id, obj_in)`                                                      | Обновить — только переданные поля (`exclude_unset=True`)        |
+| `delete(db, id)`                                                              | Удалить по ID                                                   |
+| `count(db, filters)`                                                          | Подсчёт записей                                                 |
+| `bulk_create(db, objs_in)`                                                    | Массовое создание                                               |
+| `get_or_create(db, **kwargs)`                                                 | Найти или создать, возвращает `(объект, был_создан)`            |
 
 ### Расширение через override
 
@@ -130,16 +184,16 @@ router = factory.create_router()
 
 ### Что генерируется
 
-| Метод | Путь | Описание |
-|-------|------|----------|
-| POST | `/habits/` | Создать |
-| GET | `/habits/` | Список (пагинация, фильтр `?name=`, сортировка `?order_by=-created_at`) |
-| GET | `/habits/count` | Количество |
-| GET | `/habits/{id}` | Получить по ID |
-| PATCH | `/habits/{id}` | Обновить (только переданные поля) |
-| DELETE | `/habits/{id}` | Удалить |
-| GET | `/habits/{id}/exists` | Проверить существование |
-| POST | `/habits/bulk` | Массовое создание (до 100 шт.) |
+| Метод  | Путь                  | Описание                                                                |
+| ------ | --------------------- | ----------------------------------------------------------------------- |
+| POST   | `/habits/`            | Создать                                                                 |
+| GET    | `/habits/`            | Список (пагинация, фильтр `?name=`, сортировка `?order_by=-created_at`) |
+| GET    | `/habits/count`       | Количество                                                              |
+| GET    | `/habits/{id}`        | Получить по ID                                                          |
+| PATCH  | `/habits/{id}`        | Обновить (только переданные поля)                                       |
+| DELETE | `/habits/{id}`        | Удалить                                                                 |
+| GET    | `/habits/{id}/exists` | Проверить существование                                                 |
+| POST   | `/habits/bulk`        | Массовое создание (до 100 шт.)                                          |
 
 ### Как RouterFactory загружает связи автоматически
 
@@ -175,6 +229,7 @@ MinimalBase   ← id, created_at, updated_at
 ```
 
 **Правило выбора:**
+
 - `MinimalBase` → таблицы-связки и логи, у которых нет смыслового "имени":
   - `Friendship`, `InventoryItem`, `EquippedItem`, `ActivityLog`
 - `SimpleBase` / `Base` → доменные сущности с именем:
@@ -228,13 +283,13 @@ class HabitResponse(HabitResponseShort):     # полный ответ — до�
 
 ### Фикстуры (`conftest.py`)
 
-| Фикстура | Что даёт |
-|----------|----------|
-| `db_session` | Async SQLite сессия, откатывается после каждого теста |
-| `client` | FastAPI TestClient с тестовой БД |
-| `test_user` | Создан пользователь в БД |
-| `auth_client` | TestClient с `Authorization: Bearer <jwt>` заголовком для `test_user` |
-| `create_test_user_for_tasks` | Отдельный пользователь (не `test_user`) для тестирования ресурсов |
+| Фикстура                     | Что даёт                                                              |
+| ---------------------------- | --------------------------------------------------------------------- |
+| `db_session`                 | Async SQLite сессия, откатывается после каждого теста                 |
+| `client`                     | FastAPI TestClient с тестовой БД                                      |
+| `test_user`                  | Создан пользователь в БД                                              |
+| `auth_client`                | TestClient с `Authorization: Bearer <jwt>` заголовком для `test_user` |
+| `create_test_user_for_tasks` | Отдельный пользователь (не `test_user`) для тестирования ресурсов     |
 
 ### Паттерн тестов
 
