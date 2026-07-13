@@ -9,6 +9,8 @@ are never reached through any endpoint, because RouterFactory only ever
 calls a subset of BaseCRUD's public API in a specific way.
 """
 
+from typing import Any
+
 import pytest
 from fastapi import HTTPException
 from sqlalchemy.exc import IntegrityError, SQLAlchemyError
@@ -111,8 +113,11 @@ async def test_get_loads_nested_dot_relationships(db_session: AsyncSession):
     task = await task_crud.create(db_session, {"name": "T1", "user_id": user.id})
     await sub_task_crud.create(db_session, {"name": "ST1", "task_id": task.id})
 
-    fetched = await user_crud.get(db_session, user.id, relationships=["tasks.sub_tasks"])
+    fetched = await user_crud.get(
+        db_session, user.id, relationships=["tasks.sub_tasks"]
+    )
 
+    assert fetched is not None
     assert fetched.tasks[0].sub_tasks[0].name == "ST1"
 
 
@@ -127,8 +132,11 @@ async def test_get_relationship_resolves_leading_underscore_fallback(
     )
     await user_crud.add_to_inventory(db_session, user.id, item.id)
 
-    fetched = await user_crud.get(db_session, user.id, relationships=["inventory_items"])
+    fetched = await user_crud.get(
+        db_session, user.id, relationships=["inventory_items"]
+    )
 
+    assert fetched is not None
     assert len(fetched._inventory_items) == 1
 
 
@@ -273,12 +281,14 @@ async def test_update_commit_false_is_discarded_on_rollback(db_session: AsyncSes
     updated = await item_crud.update(
         db_session, id=item_id, obj_in={"name": "Changed"}, commit=False
     )
+    assert updated is not None
     assert updated.name == "Changed"
 
     # rollback() expires all attributes on tracked instances, including the
     # PK, so we must have captured item_id beforehand.
     await db_session.rollback()
     reverted = await item_crud.get(db_session, item_id)
+    assert reverted is not None
     assert reverted.name == "Orig"
 
 
@@ -404,7 +414,9 @@ async def test_count_with_filters_and_search_fields(db_session: AsyncSession):
         db_session, ItemCreate(name="Shield", item_type=ItemType.ARMOR)
     )
 
-    assert await item_crud.count(db_session, filters={"item_type": ItemType.WEAPON}) == 1
+    assert (
+        await item_crud.count(db_session, filters={"item_type": ItemType.WEAPON}) == 1
+    )
     assert (
         await item_crud.count(
             db_session, filters={"item_type": [ItemType.WEAPON, ItemType.ARMOR]}
@@ -468,7 +480,7 @@ async def test_get_or_create_wraps_generic_db_error_as_500(
 async def test_bulk_create_commit_false_is_discarded_on_rollback(
     db_session: AsyncSession,
 ):
-    items_in = [
+    items_in: list[ItemCreate | dict[str, Any]] = [
         ItemCreate(name="B1", item_type=ItemType.WEAPON),
         ItemCreate(name="B2", item_type=ItemType.ARMOR),
     ]
