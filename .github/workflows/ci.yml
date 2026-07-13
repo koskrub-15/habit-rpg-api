@@ -23,6 +23,8 @@ jobs:
         run: uv sync --frozen
 
       - name: Run tests
+        env:
+          DATABASE_URL: sqlite+aiosqlite:///./test.db
         run: uv run pytest tests/ -v
 
   lint:
