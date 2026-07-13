@@ -32,3 +32,5 @@ tests/**/*.pyc
 alembic/**/__pycache__/
 alembic/**/*.pyc
 !.pre-commit-config.yaml
+!.github/
+!.github/**
