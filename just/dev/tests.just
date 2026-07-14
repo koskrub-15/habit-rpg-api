@@ -7,23 +7,23 @@
 
 # Run all tests with coverage
 @test-i-run:
-    uv run pytest --cov=apps --cov-report=term-missing tests
+    COVERAGE_CORE=sysmon uv run pytest --cov=apps --cov-report=term-missing tests
 
 # Run tests for specific path or file: just test-i-file tests/test_users.py
 @test-i-file path:
-    uv run pytest --cov=apps --cov-report=term-missing {{ path }}
+    COVERAGE_CORE=sysmon uv run pytest --cov=apps --cov-report=term-missing {{ path }}
 
 # Run tests matching a keyword: just test-i-keyword "test_create_user"
 @test-i-keyword keyword:
-    uv run pytest --cov=apps --cov-report=term-missing -k "{{ keyword }}" tests
+    COVERAGE_CORE=sysmon uv run pytest --cov=apps --cov-report=term-missing -k "{{ keyword }}" tests
 
 # Run tests with a specific marker: just test-i-marker "unit"
 @test-i-marker marker:
-    uv run pytest --cov=apps --cov-report=term-missing -m "{{ marker }}" tests
+    COVERAGE_CORE=sysmon uv run pytest --cov=apps --cov-report=term-missing -m "{{ marker }}" tests
 
 # Run tests, stop on first failure
 @test-i-fail-fast:
-    uv run pytest --cov=apps --cov-report=term-missing -x tests
+    COVERAGE_CORE=sysmon uv run pytest --cov=apps --cov-report=term-missing -x tests
 
 # Run tests without coverage (faster for quick checks)
 @test-i-fast:
