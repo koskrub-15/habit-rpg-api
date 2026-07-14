@@ -30,7 +30,15 @@ jobs:
       - name: Run tests
         env:
           DATABASE_URL: sqlite+aiosqlite:///./test.db
-        run: uv run pytest tests/ -v
+          COVERAGE_CORE: sysmon
+        run: uv run pytest tests/ --cov=apps --cov-report=term-missing --cov-report=xml --cov-fail-under=90
+
+      - name: Upload coverage to Codecov
+        if: matrix.python-version == '3.13'
+        uses: codecov/codecov-action@v7
+        with:
+          files: coverage.xml
+          token: ${{ secrets.CODECOV_TOKEN }}
 
   lint:
     name: Lint & type-check
