@@ -8,7 +8,7 @@
 #
 
 import 'just/dev.just'
-import 'just/homework.just'
+import 'just/app.just'
 import 'just/dev/tests.just'
 
 # [other]-[BEGIN]
