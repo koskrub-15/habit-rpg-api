@@ -15,6 +15,9 @@ repos:
     rev: v0.9.0
     hooks:
       - id: pre-commit-update
+        # Rewrites hook revs (modifies files) — never green as a CI/commit gate.
+        # Run on demand: pre-commit run pre-commit-update --hook-stage manual --all-files
+        stages: [manual]
 
     # - repo: https://github.com/sourcery-ai/sourcery
     #   rev: v1.43.0
