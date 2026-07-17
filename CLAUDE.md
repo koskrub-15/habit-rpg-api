@@ -11,7 +11,7 @@ A Habitica-style RPG backend: tasks and habits grant experience and gold; there 
 
 ```bash
 uv run uvicorn apps.main:app --reload   # dev server → http://localhost:8000
-uv run pytest tests/ -v                  # 217 tests, SQLite in-memory
+uv run pytest tests/ -v                  # 208 tests, SQLite in-memory
 ```
 
 Swagger UI: `http://localhost:8000/docs`
@@ -39,7 +39,7 @@ git push origin feature/my-feature
 # → PR on GitHub → merge into main
 ```
 
-Current working branch: **`opus_magnum`**
+Current working branch: **`main`**
 
 ### CI (GitHub Actions)
 

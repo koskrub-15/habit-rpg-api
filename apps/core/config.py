@@ -7,9 +7,13 @@ class Settings(BaseSettings):
     )
     PROJECT_NAME: str = "Habit API"
     DATABASE_URL: str
-    SECRET_KEY: str = "secret_key"
+    SECRET_KEY: str
     DEBUG: bool = False
     API_BASE_URL: str = "http://localhost:8000"
+    CORS_ORIGINS: list[str] = [
+        "http://localhost:3000",
+        "http://localhost:8000",
+    ]
 
     # Auth settings
     ALGORITHM: str = "HS256"
