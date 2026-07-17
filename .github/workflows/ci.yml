@@ -30,6 +30,7 @@ jobs:
       - name: Run tests
         env:
           DATABASE_URL: sqlite+aiosqlite:///./test.db
+          SECRET_KEY: test-secret-key
           COVERAGE_CORE: sysmon
         run: uv run pytest tests/ --cov=apps --cov-report=term-missing --cov-report=xml --cov-fail-under=90
 
