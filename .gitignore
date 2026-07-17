@@ -13,7 +13,10 @@
 !just/**
 !README.md
 !CLAUDE.md
+!CONTRIBUTING.md
 !LICENSE
+!files/
+!files/**
 !.gitignore
 !.env.example
 !alembic.ini
