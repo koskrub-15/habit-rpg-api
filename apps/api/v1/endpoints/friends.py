@@ -1,3 +1,5 @@
+from typing import List
+
 from fastapi import APIRouter, Depends, status
 from sqlalchemy.ext.asyncio import AsyncSession
 
@@ -5,8 +7,18 @@ from apps.api.deps import get_current_user
 from apps.CRUD.from_models.user import user_crud
 from apps.db.session import get_db
 from apps.models.user import User
+from apps.schemas.friend import FriendRequestResponse
 
 router = APIRouter(prefix="/friends", tags=["Friends"])
+
+
+@router.get("/requests", response_model=List[FriendRequestResponse])
+async def list_incoming_requests(
+    db: AsyncSession = Depends(get_db),
+    current_user: User = Depends(get_current_user),
+):
+    """List incoming pending friend requests for the current user."""
+    return await user_crud.get_incoming_friend_requests(db, current_user.id)
 
 
 @router.post("/request/{friend_id}", status_code=status.HTTP_201_CREATED)

@@ -217,6 +217,24 @@ class CRUDUser(BaseCRUD[User, UserCreate, UserUpdate]):
         result = await db.execute(select(User).where(User.id.in_(friend_ids)))
         return list(result.scalars().all())
 
+    async def get_incoming_friend_requests(
+        self, db: AsyncSession, user_id: int
+    ) -> List[Friendship]:
+        """Return pending friend requests received by the user, with sender loaded.
+
+        Exposes the ``request_id`` (Friendship.id) that /friends/accept and
+        /friends/decline expect — otherwise a recipient has no way to obtain it.
+        """
+        result = await db.execute(
+            select(Friendship)
+            .where(
+                Friendship.friend_id == user_id,
+                Friendship.status == FriendshipStatus.PENDING,
+            )
+            .options(selectinload(Friendship.user))
+        )
+        return list(result.scalars().all())
+
     async def remove_friend(
         self, db: AsyncSession, user_id: int, friend_id: int
     ) -> None:
