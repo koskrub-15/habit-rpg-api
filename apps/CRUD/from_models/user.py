@@ -953,6 +953,67 @@ class CRUDUser(BaseCRUD[User, UserCreate, UserUpdate]):
         )
         return list(result.scalars().all())
 
+    async def use_item(self, db: AsyncSession, user_id: int, item_id: int) -> dict:
+        """Consume one CONSUMABLE item from the user's inventory and apply its effect.
+
+        Consumables restore HP by their ``heal_amount`` (clamped to 100). One unit is
+        removed from the inventory. Non-consumables and items not owned are rejected.
+        """
+        user = await self.get(db, user_id, raise_not_found=True)
+        if not user:
+            raise HTTPException(
+                status_code=status.HTTP_404_NOT_FOUND, detail="User not found"
+            )
+
+        result = await db.execute(select(Item).where(Item.id == item_id))
+        item = result.scalar_one_or_none()
+        if not item:
+            raise HTTPException(
+                status_code=status.HTTP_404_NOT_FOUND, detail="Item not found"
+            )
+        if item.item_type != ItemType.CONSUMABLE:
+            raise HTTPException(
+                status_code=status.HTTP_400_BAD_REQUEST,
+                detail="Item is not consumable",
+            )
+
+        result = await db.execute(
+            select(InventoryItem).where(
+                InventoryItem.user_id == user_id, InventoryItem.item_id == item_id
+            )
+        )
+        inventory_item = result.scalars().first()
+        if not inventory_item:
+            raise HTTPException(
+                status_code=status.HTTP_400_BAD_REQUEST,
+                detail="Item not in inventory",
+            )
+
+        before = user.health_points
+        user.health_points = min(100, before + (item.heal_amount or 0))
+        health_restored = user.health_points - before
+
+        if inventory_item.quantity > 1:
+            inventory_item.quantity -= 1
+        else:
+            await db.delete(inventory_item)
+
+        db.add(
+            ActivityLog(
+                user_id=user_id,  # type: ignore
+                activity_type=ActivityType.ITEM_USED,  # type: ignore
+                item_id=item_id,  # type: ignore
+                description=f"Used item: {item.name} (+{health_restored} HP)",  # type: ignore
+            )
+        )
+        await db.commit()
+
+        return {
+            "item_id": item_id,
+            "health_restored": health_restored,
+            "current_health": user.health_points,
+        }
+
     async def get_user_stats(self, db: AsyncSession, user_id: int) -> dict:
         """Derive the character's combat stats from currently equipped items.
 

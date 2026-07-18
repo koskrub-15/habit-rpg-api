@@ -43,6 +43,7 @@ class Item(Base):
     defense = Column(Integer, default=0)
     attack = Column(Integer, default=0)
     pet_power = Column(Integer, default=0)
+    heal_amount = Column(Integer, default=0)
     required_level = Column(Integer, default=0)
     rarity = Column(Enum(Rarity), default=Rarity.COMMON)
     available_in_shop = Column(Boolean, default=False)
