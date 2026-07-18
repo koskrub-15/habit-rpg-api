@@ -1,5 +1,6 @@
 from __future__ import annotations
 
+from datetime import datetime
 from typing import Optional
 
 from pydantic import BaseModel, ConfigDict
@@ -36,6 +37,7 @@ class HabitResponseShort(BaseSchemaResponse):
     status: HabitStatus
     streak: int = 0
     overfulfillment: int = 0
+    last_completed_at: Optional[datetime] = None
 
 
 class HabitResponse(HabitResponseShort):

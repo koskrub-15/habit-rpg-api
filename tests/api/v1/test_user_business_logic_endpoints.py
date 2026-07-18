@@ -1,6 +1,9 @@
+from datetime import datetime, timedelta, timezone
+
 import pytest
 import pytest_asyncio
 from httpx import AsyncClient
+from sqlalchemy import select
 from sqlalchemy.ext.asyncio import AsyncSession
 
 from apps.models.habit import Habit, HabitStatus, HabitType
@@ -346,9 +349,10 @@ async def test_positive_habit_overfulfillment_increases_on_repeat(
     test_user: User,
     test_positive_habit: Habit,
 ):
-    """Performing a completed positive habit increments overfulfillment."""
+    """Performing a positive habit again the same day increments overfulfillment."""
     test_positive_habit.status = HabitStatus.COMPLETED
     test_positive_habit.overfulfillment = 0
+    test_positive_habit.last_completed_at = datetime.now(timezone.utc)
     await db_session.commit()
 
     response = await auth_client.post(
@@ -392,6 +396,87 @@ async def test_positive_habit_overfulfillment_decreases_on_miss(
     assert (
         test_positive_habit.streak == 3
     )  # streak preserved because overfulfillment was > 0
+
+
+@pytest.mark.asyncio
+async def test_positive_habit_repeat_same_day_gives_diminishing_reward(
+    auth_client: AsyncClient,
+    db_session: AsyncSession,
+    test_user: User,
+    test_positive_habit: Habit,
+):
+    """Repeating a habit the same day yields a smaller reward (decay 0.7)."""
+    payload = {
+        "activity_type": "habit",
+        "activity_id": test_positive_habit.id,
+        "performed": True,
+    }
+    url = f"/api/v1/users/{test_user.id}/complete-activity"
+
+    first = await auth_client.post(url, json=payload)
+    second = await auth_client.post(url, json=payload)
+    assert first.status_code == 200 and second.status_code == 200
+
+    first_exp = first.json()["exp_gained"]
+    second_exp = second.json()["exp_gained"]
+    assert first_exp > 0
+    # size MEDIUM (x2), base 5 -> 10 full; second is int(10 * 0.7) = 7
+    assert second_exp == int(first_exp * 0.7)
+
+    await db_session.refresh(test_positive_habit)
+    assert test_positive_habit.overfulfillment == 1
+    assert test_positive_habit.last_completed_at is not None
+
+
+@pytest.mark.asyncio
+async def test_positive_habit_new_day_resets_reward_and_counter(
+    auth_client: AsyncClient,
+    db_session: AsyncSession,
+    test_user: User,
+    test_positive_habit: Habit,
+):
+    """A completion on a new UTC day resets overfulfillment and pays full reward."""
+    test_positive_habit.status = HabitStatus.COMPLETED
+    test_positive_habit.overfulfillment = 5
+    test_positive_habit.last_completed_at = datetime.now(timezone.utc) - timedelta(
+        days=1
+    )
+    await db_session.commit()
+
+    response = await auth_client.post(
+        f"/api/v1/users/{test_user.id}/complete-activity",
+        json={
+            "activity_type": "habit",
+            "activity_id": test_positive_habit.id,
+            "performed": True,
+        },
+    )
+    assert response.status_code == 200
+    # Full reward again: base 5 * MEDIUM 2 = 10, no decay
+    assert response.json()["exp_gained"] == 10
+
+    await db_session.refresh(test_positive_habit)
+    assert test_positive_habit.overfulfillment == 0
+
+
+@pytest.mark.asyncio
+async def test_task_completed_again_same_day_returns_409(
+    auth_client: AsyncClient,
+    db_session: AsyncSession,
+    test_user: User,
+    test_daily_task: Task,
+):
+    """A daily task reset to TODO cannot be re-farmed the same day."""
+    test_daily_task.status = TaskStatus.TODO
+    test_daily_task.last_completed_at = datetime.now(timezone.utc)
+    await db_session.commit()
+
+    response = await auth_client.post(
+        f"/api/v1/users/{test_user.id}/complete-activity",
+        json={"activity_type": "task", "activity_id": test_daily_task.id},
+    )
+    assert response.status_code == 409
+    assert "today" in response.json()["detail"].lower()
 
 
 # ---------------------------------------------------------------------------
@@ -460,14 +545,23 @@ async def test_negative_habit_performed_resets_streak(
 
 
 @pytest.mark.asyncio
-async def test_negative_habit_health_capped_at_zero(
+async def test_negative_habit_zero_health_triggers_death(
     auth_client: AsyncClient,
     db_session: AsyncSession,
     test_user: User,
     test_negative_habit: Habit,
+    test_armor_item: Item,
 ):
-    """Health should not go below 0 when giving in to a negative habit."""
+    """Dropping to 0 HP triggers the death penalty: lose one level, all gold and a
+    random equipped item; health resets to full."""
     test_user.health_points = 5
+    test_user.gold = 100
+    test_user.experience = 20  # level 5
+    db_session.add(
+        EquippedItem(
+            user_id=test_user.id, item_id=test_armor_item.id, slot=SlotType.ARMOR
+        )
+    )
     await db_session.commit()
 
     response = await auth_client.post(
@@ -479,9 +573,44 @@ async def test_negative_habit_health_capped_at_zero(
         },
     )
     assert response.status_code == 200
+    data = response.json()
+    assert data["died"] is True
+    assert data["current_health"] == 100
+    assert data["new_level"] == 4
 
     await db_session.refresh(test_user)
-    assert test_user.health_points == 0
+    assert test_user.health_points == 100
+    assert test_user.gold == 0
+    assert test_user.experience == 9  # floor of level 4, XP bar reset
+
+    equipped = await db_session.execute(
+        select(EquippedItem).where(EquippedItem.user_id == test_user.id)
+    )
+    assert equipped.scalars().first() is None
+
+
+@pytest.mark.asyncio
+async def test_level_up_heals_to_full(
+    auth_client: AsyncClient,
+    db_session: AsyncSession,
+    test_user: User,
+    test_task: Task,
+):
+    """Crossing a level threshold restores health to full."""
+    test_user.health_points = 30
+    test_user.experience = 0  # level 1
+    await db_session.commit()
+
+    # MEDIUM task: +20 exp -> level 5, a level up
+    response = await auth_client.post(
+        f"/api/v1/users/{test_user.id}/complete-activity",
+        json={"activity_type": "task", "activity_id": test_task.id},
+    )
+    assert response.status_code == 200
+    assert response.json()["current_health"] == 100
+
+    await db_session.refresh(test_user)
+    assert test_user.health_points == 100
 
 
 # ---------------------------------------------------------------------------
@@ -938,3 +1067,105 @@ async def test_get_user_with_relations_not_found(auth_client: AsyncClient):
     response = await auth_client.get("/api/v1/users/99999/details")
     assert response.status_code == 404
     assert "not found" in response.json()["detail"].lower()
+
+
+# ---------------------------------------------------------------------------
+# Tests: daily cron rollover
+# ---------------------------------------------------------------------------
+
+
+@pytest.mark.asyncio
+async def test_cron_missed_daily_damages_and_resets(
+    auth_client: AsyncClient,
+    db_session: AsyncSession,
+    test_user: User,
+    test_daily_task: Task,
+):
+    """A daily left un-completed costs HP and is reset to TODO for the new day."""
+    test_user.health_points = 100
+    test_user.last_cron_at = None
+    test_daily_task.status = TaskStatus.TODO
+    await db_session.commit()
+
+    response = await auth_client.post(f"/api/v1/users/{test_user.id}/cron")
+    assert response.status_code == 200
+    data = response.json()
+    assert data["ran"] is True
+    assert data["missed_dailies"] == 1
+    assert data["health_lost"] == 10  # SMALL daily: 10 * 1.0
+    assert data["current_health"] == 90
+    assert data["died"] is False
+
+    await db_session.refresh(test_daily_task)
+    assert test_daily_task.status == TaskStatus.TODO
+
+
+@pytest.mark.asyncio
+async def test_cron_completed_daily_no_damage(
+    auth_client: AsyncClient,
+    db_session: AsyncSession,
+    test_user: User,
+    test_daily_task: Task,
+):
+    """A completed daily is reset without any HP damage."""
+    test_user.health_points = 100
+    test_user.last_cron_at = None
+    test_daily_task.status = TaskStatus.COMPLETED
+    await db_session.commit()
+
+    response = await auth_client.post(f"/api/v1/users/{test_user.id}/cron")
+    assert response.status_code == 200
+    data = response.json()
+    assert data["missed_dailies"] == 0
+    assert data["health_lost"] == 0
+    assert data["current_health"] == 100
+
+    await db_session.refresh(test_daily_task)
+    assert test_daily_task.status == TaskStatus.TODO
+
+
+@pytest.mark.asyncio
+async def test_cron_is_idempotent_within_day(
+    auth_client: AsyncClient,
+    db_session: AsyncSession,
+    test_user: User,
+    test_daily_task: Task,
+):
+    """Running cron a second time the same UTC day is a no-op."""
+    test_user.health_points = 50
+    test_user.last_cron_at = datetime.now(timezone.utc)
+    test_daily_task.status = TaskStatus.TODO
+    await db_session.commit()
+
+    response = await auth_client.post(f"/api/v1/users/{test_user.id}/cron")
+    assert response.status_code == 200
+    data = response.json()
+    assert data["ran"] is False
+    assert data["health_lost"] == 0
+    assert data["current_health"] == 50
+
+
+@pytest.mark.asyncio
+async def test_cron_missed_daily_can_trigger_death(
+    auth_client: AsyncClient,
+    db_session: AsyncSession,
+    test_user: User,
+    test_daily_task: Task,
+):
+    """Enough missed-daily damage to reach 0 HP triggers the death penalty."""
+    test_user.health_points = 5
+    test_user.gold = 100
+    test_user.experience = 20  # level 5
+    test_user.last_cron_at = None
+    test_daily_task.status = TaskStatus.TODO
+    await db_session.commit()
+
+    response = await auth_client.post(f"/api/v1/users/{test_user.id}/cron")
+    assert response.status_code == 200
+    data = response.json()
+    assert data["died"] is True
+    assert data["current_health"] == 100
+
+    await db_session.refresh(test_user)
+    assert test_user.gold == 0
+    assert test_user.experience == 9  # dropped from level 5 to level 4

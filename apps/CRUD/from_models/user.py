@@ -1,8 +1,9 @@
+import random
 from datetime import datetime, timezone
 from typing import List, Optional
 
 from fastapi import HTTPException, status
-from sqlalchemy import or_, select
+from sqlalchemy import or_, select, update
 from sqlalchemy.ext.asyncio import AsyncSession
 from sqlalchemy.orm import selectinload
 
@@ -12,7 +13,7 @@ from apps.models.activity_log import ActivityLog, ActivityType
 from apps.models.habit import Habit, HabitStatus, HabitType
 from apps.models.item import Item, ItemType
 from apps.models.store_rotation import ShopItem
-from apps.models.task import Size, Task, TaskStatus
+from apps.models.task import Size, Task, TaskStatus, TaskType
 from apps.models.user import (
     EquippedItem,
     Friendship,
@@ -274,7 +275,7 @@ class CRUDUser(BaseCRUD[User, UserCreate, UserUpdate]):
                 description=f"Unlocked achievement: {achievement.name}",  # type: ignore
             )
         )
-        self._log_level_up(db, user, level_before)
+        self._handle_level_up(db, user, level_before)
 
         await db.commit()
         await db.refresh(user)
@@ -328,7 +329,7 @@ class CRUDUser(BaseCRUD[User, UserCreate, UserUpdate]):
                         description=f"Unlocked achievement: {ach.name}",  # type: ignore
                     )
                 )
-                self._log_level_up(db, user, level_before)
+                self._handle_level_up(db, user, level_before)
                 awarded.append(ach)
 
         if awarded:
@@ -350,6 +351,41 @@ class CRUDUser(BaseCRUD[User, UserCreate, UserUpdate]):
 
     BASE_TASK_REWARD = 10
     BASE_HABIT_REWARD = 5
+    HABIT_OVERFULFILL_DECAY = 0.7
+    DAILY_MISS_PENALTY = 10
+
+    @staticmethod
+    def _to_utc(dt: datetime) -> datetime:
+        """Coerce a stored datetime to timezone-aware UTC.
+
+        SQLite round-trips ``DateTime(timezone=True)`` as naive values that
+        already hold UTC wall-clock time, so treat naive datetimes as UTC.
+        """
+        return dt if dt.tzinfo is not None else dt.replace(tzinfo=timezone.utc)
+
+    def _completed_today(
+        self, last_completed_at: Optional[datetime], now: datetime
+    ) -> bool:
+        """Whether the last rewarded completion happened on the current UTC day."""
+        return (
+            last_completed_at is not None
+            and self._to_utc(last_completed_at).date() == now.date()
+        )
+
+    def _daily_overfulfillment_decay(self, habit: Habit, now: datetime) -> float:
+        """Grow or reset the daily repeat counter and return the reward multiplier.
+
+        The first rewarded completion of a UTC day resets ``overfulfillment`` to 0
+        (full reward); each further completion the same day increments it, shrinking
+        the reward by ``HABIT_OVERFULFILL_DECAY ** overfulfillment``. This caps daily
+        farming while still granting diminishing rewards for extra effort.
+        """
+        if self._completed_today(habit.last_completed_at, now):
+            habit.overfulfillment += 1
+        else:
+            habit.overfulfillment = 0
+        habit.last_completed_at = now
+        return self.HABIT_OVERFULFILL_DECAY**habit.overfulfillment
 
     def _calculate_level(self, experience: int) -> int:
         """Calculate the user's level based on their experience points."""
@@ -358,10 +394,11 @@ class CRUDUser(BaseCRUD[User, UserCreate, UserUpdate]):
             level += 1
         return level
 
-    def _log_level_up(self, db: AsyncSession, user: User, level_before: int) -> None:
-        """Write a LEVEL_UP entry if experience gains crossed a level threshold."""
+    def _handle_level_up(self, db: AsyncSession, user: User, level_before: int) -> None:
+        """Heal to full and log a LEVEL_UP entry when a level threshold is crossed."""
         level_after = self._calculate_level(user.experience)
         if level_after > level_before:
+            user.health_points = 100
             db.add(
                 ActivityLog(
                     user_id=user.id,  # type: ignore
@@ -369,6 +406,39 @@ class CRUDUser(BaseCRUD[User, UserCreate, UserUpdate]):
                     description=f"Reached level {level_after}",  # type: ignore
                 )
             )
+
+    async def _apply_death_penalty(self, db: AsyncSession, user: User) -> bool:
+        """Apply the Habitica-style death penalty when health hits zero.
+
+        Losing all health costs one level (experience drops to the floor of the new
+        level, resetting the XP bar), all gold, and one random equipped item; health
+        is then restored to full. Returns True if the user died. (Habitica also
+        removes a random stat point — not modelled here, so it is skipped.)
+        """
+        if user.health_points > 0:
+            return False
+
+        level = self._calculate_level(user.experience)
+        new_level = max(1, level - 1)
+        user.experience = (new_level - 1) ** 2
+        user.gold = 0
+        user.health_points = 100
+
+        result = await db.execute(
+            select(EquippedItem).where(EquippedItem.user_id == user.id)
+        )
+        equipped = result.scalars().all()
+        if equipped:
+            await db.delete(random.choice(equipped))
+
+        db.add(
+            ActivityLog(
+                user_id=user.id,  # type: ignore
+                activity_type=ActivityType.DEATH,  # type: ignore
+                description=f"Died and dropped to level {new_level}",  # type: ignore
+            )
+        )
+        return True
 
     async def _apply_achievement_rewards(
         self, db: AsyncSession, user: User, achievement: Achievement
@@ -390,12 +460,19 @@ class CRUDUser(BaseCRUD[User, UserCreate, UserUpdate]):
 
     def _apply_task_reward(self, user: User, task: Task) -> dict:
         """Apply reward for completed task to user and task objects in memory."""
+        now = datetime.now(timezone.utc)
         if task.status == TaskStatus.COMPLETED:
             raise HTTPException(
                 status_code=status.HTTP_400_BAD_REQUEST, detail="Task already completed"
             )
+        if self._completed_today(task.last_completed_at, now):
+            raise HTTPException(
+                status_code=status.HTTP_409_CONFLICT,
+                detail="Task already completed today",
+            )
 
         task.status = TaskStatus.COMPLETED
+        task.last_completed_at = now
         multiplier = self.SIZE_MULTIPLIERS.get(task.task_size, 1.0)
         exp_gain = int(self.BASE_TASK_REWARD * multiplier)
         gold_gain = int(exp_gain * 0.6)
@@ -416,6 +493,7 @@ class CRUDUser(BaseCRUD[User, UserCreate, UserUpdate]):
 
     def _apply_habit_reward(self, user: User, habit: Habit, performed: bool) -> dict:
         """Apply habit completion reward to in-memory objects. No DB commit."""
+        now = datetime.now(timezone.utc)
         size_mult = self.SIZE_MULTIPLIERS.get(habit.habit_size, 1.0)
         type_mult = self.HABIT_TYPE_MULTIPLIERS.get(habit.habit_type, 1.0)
         exp_gain = 0
@@ -423,11 +501,10 @@ class CRUDUser(BaseCRUD[User, UserCreate, UserUpdate]):
         health_change = 0
 
         if habit.habit_type == HabitType.POSITIVE and performed:
-            if habit.status == HabitStatus.COMPLETED or habit.overfulfillment > 0:
-                habit.overfulfillment += 1
+            decay = self._daily_overfulfillment_decay(habit, now)
             habit.streak += 1
             habit.status = HabitStatus.COMPLETED
-            exp_gain = int(self.BASE_HABIT_REWARD * size_mult * type_mult)
+            exp_gain = int(self.BASE_HABIT_REWARD * size_mult * type_mult * decay)
             gold_gain = int(exp_gain * 0.5)
 
         elif habit.habit_type == HabitType.POSITIVE and not performed:
@@ -439,8 +516,9 @@ class CRUDUser(BaseCRUD[User, UserCreate, UserUpdate]):
 
         elif habit.habit_type == HabitType.NEGATIVE and not performed:
             # Successfully avoided the bad habit: reward and grow the streak.
+            decay = self._daily_overfulfillment_decay(habit, now)
             habit.streak += 1
-            exp_gain = int(self.BASE_HABIT_REWARD * size_mult * abs(type_mult))
+            exp_gain = int(self.BASE_HABIT_REWARD * size_mult * abs(type_mult) * decay)
             gold_gain = int(exp_gain * 0.4)
             health_change = 0
             habit.status = HabitStatus.COMPLETED
@@ -455,9 +533,8 @@ class CRUDUser(BaseCRUD[User, UserCreate, UserUpdate]):
 
         else:  # NEUTRAL
             if performed:
-                if habit.status == HabitStatus.COMPLETED or habit.overfulfillment > 0:
-                    habit.overfulfillment += 1
-                exp_gain = int(self.BASE_HABIT_REWARD * size_mult * type_mult)
+                decay = self._daily_overfulfillment_decay(habit, now)
+                exp_gain = int(self.BASE_HABIT_REWARD * size_mult * type_mult * decay)
                 gold_gain = int(exp_gain * 0.3)
             else:
                 if habit.overfulfillment > 0:
@@ -547,7 +624,13 @@ class CRUDUser(BaseCRUD[User, UserCreate, UserUpdate]):
                 detail="activity_type must be 'task' or 'habit'",
             )
 
-        self._log_level_up(db, user, level_before)
+        self._handle_level_up(db, user, level_before)
+        died = await self._apply_death_penalty(db, user)
+
+        # Reflect the final user state after level-up heal / death penalty.
+        reward["current_health"] = user.health_points
+        reward["new_level"] = self._calculate_level(user.experience)
+        reward["died"] = died
 
         await db.commit()
 
@@ -555,6 +638,81 @@ class CRUDUser(BaseCRUD[User, UserCreate, UserUpdate]):
         await self.check_and_award_achievements(db, user_id)
 
         return CompleteActivityResponse(**reward)
+
+    async def run_daily_cron(self, db: AsyncSession, *, user_id: int) -> dict:
+        """Roll the user's day over: reset dailies/habits and damage HP for misses.
+
+        Idempotent per UTC day — a second call the same day is a no-op. Every DAILY
+        task left un-completed costs HP (scaled by size, like giving in to a negative
+        habit); dropping to 0 HP triggers the death penalty. Dailies and habits are
+        then reset to TODO for the new day.
+        """
+        user = await self.get(db, user_id, raise_not_found=True)
+        if not user:
+            raise HTTPException(
+                status_code=status.HTTP_404_NOT_FOUND, detail="User not found"
+            )
+        now = datetime.now(timezone.utc)
+
+        if (
+            user.last_cron_at is not None
+            and self._to_utc(user.last_cron_at).date() >= now.date()
+        ):
+            return {
+                "ran": False,
+                "missed_dailies": 0,
+                "health_lost": 0,
+                "current_health": user.health_points,
+                "died": False,
+            }
+
+        result = await db.execute(
+            select(Task)
+            .where(Task.user_id == user_id, Task.task_type == TaskType.DAILY)
+            .options(selectinload(Task.sub_tasks))
+        )
+        dailies = result.scalars().all()
+
+        missed = 0
+        health_lost = 0
+        for task in dailies:
+            if task.status != TaskStatus.COMPLETED:
+                missed += 1
+                health_lost += int(
+                    self.DAILY_MISS_PENALTY
+                    * self.SIZE_MULTIPLIERS.get(task.task_size, 1.0)
+                )
+            task.reset_daily_task()
+
+        await db.execute(
+            update(Habit)
+            .where(Habit.user_id == user_id)
+            .values(status=HabitStatus.TODO)
+        )
+
+        if health_lost:
+            user.health_points = max(0, user.health_points - health_lost)
+        died = await self._apply_death_penalty(db, user)
+
+        if missed:
+            db.add(
+                ActivityLog(
+                    user_id=user_id,  # type: ignore
+                    activity_type=ActivityType.DAILY_MISSED,  # type: ignore
+                    description=f"Missed {missed} daily task(s), lost {health_lost} HP",  # type: ignore
+                )
+            )
+
+        user.last_cron_at = now
+        await db.commit()
+
+        return {
+            "ran": True,
+            "missed_dailies": missed,
+            "health_lost": health_lost,
+            "current_health": user.health_points,
+            "died": died,
+        }
 
     async def get_user_with_relations(
         self, db: AsyncSession, user_id: int, relationships: Optional[list[str]] = None

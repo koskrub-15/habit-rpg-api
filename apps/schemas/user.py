@@ -1,5 +1,6 @@
 from __future__ import annotations
 
+from datetime import datetime
 from typing import List, Optional
 
 from pydantic import BaseModel, ConfigDict, field_validator
@@ -54,6 +55,7 @@ class UserResponse(UserResponseShort):
     experience: int = 0
     gold: int = 0
     is_superuser: bool = False
+    last_cron_at: Optional[datetime] = None
     habits: List[HabitResponseShort] = []
     tasks: List[TaskResponse] = []
     achievements: List[AchievementResponseShort] = []
@@ -78,6 +80,16 @@ class CompleteActivityResponse(BaseModel):
     new_level: int
     current_health: int
     streak: Optional[str] = None
+    died: bool = False
+    model_config = ConfigDict(from_attributes=True)
+
+
+class DailyCronResponse(BaseModel):
+    ran: bool
+    missed_dailies: int
+    health_lost: int
+    current_health: int
+    died: bool = False
     model_config = ConfigDict(from_attributes=True)
 
 

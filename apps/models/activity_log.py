@@ -12,6 +12,8 @@ class ActivityType(enum.Enum):
     ITEM_PURCHASED = "ITEM_PURCHASED"
     ACHIEVEMENT_UNLOCKED = "ACHIEVEMENT_UNLOCKED"
     LEVEL_UP = "LEVEL_UP"
+    DEATH = "DEATH"
+    DAILY_MISSED = "DAILY_MISSED"
 
 
 class ActivityLog(MinimalBase):
