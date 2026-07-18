@@ -12,6 +12,11 @@ from apps.models.achievement import Achievement, Reward
 from apps.models.activity_log import ActivityLog, ActivityType
 from apps.models.habit import Habit, HabitStatus, HabitType
 from apps.models.item import Item, ItemType
+from apps.models.notification import (
+    Notification,
+    NotificationType,
+    UserNotificationPreference,
+)
 from apps.models.store_rotation import ShopItem
 from apps.models.task import Size, Task, TaskStatus, TaskType
 from apps.models.user import (
@@ -150,6 +155,13 @@ class CRUDUser(BaseCRUD[User, UserCreate, UserUpdate]):
             user_id=user_id, friend_id=friend_id, status=FriendshipStatus.PENDING
         )  # type: ignore
         db.add(friendship)
+        await self._notify(
+            db,
+            friend_id,
+            NotificationType.FRIEND_REQUEST,
+            "Friend request",
+            "You have a new friend request",
+        )
         await db.commit()
         await db.refresh(friendship)
         return friendship
@@ -293,7 +305,14 @@ class CRUDUser(BaseCRUD[User, UserCreate, UserUpdate]):
                 description=f"Unlocked achievement: {achievement.name}",  # type: ignore
             )
         )
-        self._handle_level_up(db, user, level_before)
+        await self._notify(
+            db,
+            user.id,
+            NotificationType.SYSTEM,
+            "Achievement unlocked",
+            f"Achievement unlocked: {achievement.name}",
+        )
+        await self._handle_level_up(db, user, level_before)
 
         await db.commit()
         await db.refresh(user)
@@ -347,7 +366,14 @@ class CRUDUser(BaseCRUD[User, UserCreate, UserUpdate]):
                         description=f"Unlocked achievement: {ach.name}",  # type: ignore
                     )
                 )
-                self._handle_level_up(db, user, level_before)
+                await self._notify(
+                    db,
+                    user.id,
+                    NotificationType.SYSTEM,
+                    "Achievement unlocked",
+                    f"Achievement unlocked: {ach.name}",
+                )
+                await self._handle_level_up(db, user, level_before)
                 awarded.append(ach)
 
         if awarded:
@@ -412,8 +438,41 @@ class CRUDUser(BaseCRUD[User, UserCreate, UserUpdate]):
             level += 1
         return level
 
-    def _handle_level_up(self, db: AsyncSession, user: User, level_before: int) -> None:
-        """Heal to full and log a LEVEL_UP entry when a level threshold is crossed."""
+    async def _notify(
+        self,
+        db: AsyncSession,
+        user_id: int,
+        notification_type: NotificationType,
+        title: str,
+        message: str,
+    ) -> None:
+        """Create a notification unless the user has explicitly opted out of its type.
+
+        Notifications default to on: a preference row is only consulted to suppress
+        a type the user has switched off (``is_enabled=False``). The caller commits.
+        """
+        result = await db.execute(
+            select(UserNotificationPreference).where(
+                UserNotificationPreference.user_id == user_id,
+                UserNotificationPreference.notification_type == notification_type,
+            )
+        )
+        preference = result.scalar_one_or_none()
+        if preference is not None and not preference.is_enabled:
+            return
+        db.add(
+            Notification(
+                user_id=user_id,  # type: ignore
+                notification_type=notification_type,  # type: ignore
+                name=title,  # type: ignore
+                message=message,  # type: ignore
+            )
+        )
+
+    async def _handle_level_up(
+        self, db: AsyncSession, user: User, level_before: int
+    ) -> None:
+        """Heal to full, log LEVEL_UP and notify when a level threshold is crossed."""
         level_after = self._calculate_level(user.experience)
         if level_after > level_before:
             user.health_points = 100
@@ -423,6 +482,13 @@ class CRUDUser(BaseCRUD[User, UserCreate, UserUpdate]):
                     activity_type=ActivityType.LEVEL_UP,  # type: ignore
                     description=f"Reached level {level_after}",  # type: ignore
                 )
+            )
+            await self._notify(
+                db,
+                user.id,
+                NotificationType.SYSTEM,
+                "Level up",
+                f"You reached level {level_after}!",
             )
 
     async def _apply_death_penalty(self, db: AsyncSession, user: User) -> bool:
@@ -642,7 +708,7 @@ class CRUDUser(BaseCRUD[User, UserCreate, UserUpdate]):
                 detail="activity_type must be 'task' or 'habit'",
             )
 
-        self._handle_level_up(db, user, level_before)
+        await self._handle_level_up(db, user, level_before)
         died = await self._apply_death_penalty(db, user)
 
         # Reflect the final user state after level-up heal / death penalty.
