@@ -1,3 +1,4 @@
+import random
 from datetime import datetime, timezone
 from typing import List, Optional
 
@@ -274,7 +275,7 @@ class CRUDUser(BaseCRUD[User, UserCreate, UserUpdate]):
                 description=f"Unlocked achievement: {achievement.name}",  # type: ignore
             )
         )
-        self._log_level_up(db, user, level_before)
+        self._handle_level_up(db, user, level_before)
 
         await db.commit()
         await db.refresh(user)
@@ -328,7 +329,7 @@ class CRUDUser(BaseCRUD[User, UserCreate, UserUpdate]):
                         description=f"Unlocked achievement: {ach.name}",  # type: ignore
                     )
                 )
-                self._log_level_up(db, user, level_before)
+                self._handle_level_up(db, user, level_before)
                 awarded.append(ach)
 
         if awarded:
@@ -392,10 +393,11 @@ class CRUDUser(BaseCRUD[User, UserCreate, UserUpdate]):
             level += 1
         return level
 
-    def _log_level_up(self, db: AsyncSession, user: User, level_before: int) -> None:
-        """Write a LEVEL_UP entry if experience gains crossed a level threshold."""
+    def _handle_level_up(self, db: AsyncSession, user: User, level_before: int) -> None:
+        """Heal to full and log a LEVEL_UP entry when a level threshold is crossed."""
         level_after = self._calculate_level(user.experience)
         if level_after > level_before:
+            user.health_points = 100
             db.add(
                 ActivityLog(
                     user_id=user.id,  # type: ignore
@@ -403,6 +405,39 @@ class CRUDUser(BaseCRUD[User, UserCreate, UserUpdate]):
                     description=f"Reached level {level_after}",  # type: ignore
                 )
             )
+
+    async def _apply_death_penalty(self, db: AsyncSession, user: User) -> bool:
+        """Apply the Habitica-style death penalty when health hits zero.
+
+        Losing all health costs one level (experience drops to the floor of the new
+        level, resetting the XP bar), all gold, and one random equipped item; health
+        is then restored to full. Returns True if the user died. (Habitica also
+        removes a random stat point — not modelled here, so it is skipped.)
+        """
+        if user.health_points > 0:
+            return False
+
+        level = self._calculate_level(user.experience)
+        new_level = max(1, level - 1)
+        user.experience = (new_level - 1) ** 2
+        user.gold = 0
+        user.health_points = 100
+
+        result = await db.execute(
+            select(EquippedItem).where(EquippedItem.user_id == user.id)
+        )
+        equipped = result.scalars().all()
+        if equipped:
+            await db.delete(random.choice(equipped))
+
+        db.add(
+            ActivityLog(
+                user_id=user.id,  # type: ignore
+                activity_type=ActivityType.DEATH,  # type: ignore
+                description=f"Died and dropped to level {new_level}",  # type: ignore
+            )
+        )
+        return True
 
     async def _apply_achievement_rewards(
         self, db: AsyncSession, user: User, achievement: Achievement
@@ -588,7 +623,13 @@ class CRUDUser(BaseCRUD[User, UserCreate, UserUpdate]):
                 detail="activity_type must be 'task' or 'habit'",
             )
 
-        self._log_level_up(db, user, level_before)
+        self._handle_level_up(db, user, level_before)
+        died = await self._apply_death_penalty(db, user)
+
+        # Reflect the final user state after level-up heal / death penalty.
+        reward["current_health"] = user.health_points
+        reward["new_level"] = self._calculate_level(user.experience)
+        reward["died"] = died
 
         await db.commit()
 

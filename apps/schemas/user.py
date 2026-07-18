@@ -78,6 +78,7 @@ class CompleteActivityResponse(BaseModel):
     new_level: int
     current_health: int
     streak: Optional[str] = None
+    died: bool = False
     model_config = ConfigDict(from_attributes=True)
 
 

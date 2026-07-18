@@ -3,6 +3,7 @@ from datetime import datetime, timedelta, timezone
 import pytest
 import pytest_asyncio
 from httpx import AsyncClient
+from sqlalchemy import select
 from sqlalchemy.ext.asyncio import AsyncSession
 
 from apps.models.habit import Habit, HabitStatus, HabitType
@@ -544,14 +545,23 @@ async def test_negative_habit_performed_resets_streak(
 
 
 @pytest.mark.asyncio
-async def test_negative_habit_health_capped_at_zero(
+async def test_negative_habit_zero_health_triggers_death(
     auth_client: AsyncClient,
     db_session: AsyncSession,
     test_user: User,
     test_negative_habit: Habit,
+    test_armor_item: Item,
 ):
-    """Health should not go below 0 when giving in to a negative habit."""
+    """Dropping to 0 HP triggers the death penalty: lose one level, all gold and a
+    random equipped item; health resets to full."""
     test_user.health_points = 5
+    test_user.gold = 100
+    test_user.experience = 20  # level 5
+    db_session.add(
+        EquippedItem(
+            user_id=test_user.id, item_id=test_armor_item.id, slot=SlotType.ARMOR
+        )
+    )
     await db_session.commit()
 
     response = await auth_client.post(
@@ -563,9 +573,44 @@ async def test_negative_habit_health_capped_at_zero(
         },
     )
     assert response.status_code == 200
+    data = response.json()
+    assert data["died"] is True
+    assert data["current_health"] == 100
+    assert data["new_level"] == 4
 
     await db_session.refresh(test_user)
-    assert test_user.health_points == 0
+    assert test_user.health_points == 100
+    assert test_user.gold == 0
+    assert test_user.experience == 9  # floor of level 4, XP bar reset
+
+    equipped = await db_session.execute(
+        select(EquippedItem).where(EquippedItem.user_id == test_user.id)
+    )
+    assert equipped.scalars().first() is None
+
+
+@pytest.mark.asyncio
+async def test_level_up_heals_to_full(
+    auth_client: AsyncClient,
+    db_session: AsyncSession,
+    test_user: User,
+    test_task: Task,
+):
+    """Crossing a level threshold restores health to full."""
+    test_user.health_points = 30
+    test_user.experience = 0  # level 1
+    await db_session.commit()
+
+    # MEDIUM task: +20 exp -> level 5, a level up
+    response = await auth_client.post(
+        f"/api/v1/users/{test_user.id}/complete-activity",
+        json={"activity_type": "task", "activity_id": test_task.id},
+    )
+    assert response.status_code == 200
+    assert response.json()["current_health"] == 100
+
+    await db_session.refresh(test_user)
+    assert test_user.health_points == 100
 
 
 # ---------------------------------------------------------------------------
