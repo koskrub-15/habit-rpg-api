@@ -953,5 +953,25 @@ class CRUDUser(BaseCRUD[User, UserCreate, UserUpdate]):
         )
         return list(result.scalars().all())
 
+    async def get_user_stats(self, db: AsyncSession, user_id: int) -> dict:
+        """Derive the character's combat stats from currently equipped items.
+
+        Sums the attack/defense/pet_power of every equipped item so the item
+        stats actually influence the character sheet.
+        """
+        user = await self.get(db, user_id, raise_not_found=True)
+        if not user:
+            raise HTTPException(
+                status_code=status.HTTP_404_NOT_FOUND, detail="User not found"
+            )
+        equipped = await self.get_equipped_items(db, user_id)
+        return {
+            "level": self._calculate_level(user.experience),
+            "health_points": user.health_points,
+            "attack": sum(e.item.attack for e in equipped if e.item),
+            "defense": sum(e.item.defense for e in equipped if e.item),
+            "pet_power": sum(e.item.pet_power for e in equipped if e.item),
+        }
+
 
 user_crud = CRUDUser()
