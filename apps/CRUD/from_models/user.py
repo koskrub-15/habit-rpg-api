@@ -302,18 +302,19 @@ class CRUDUser(BaseCRUD[User, UserCreate, UserUpdate]):
             if ach in user.achievements:
                 continue
 
-            condition_met = False
-            if ach.condition_type == "tasks_completed":
-                completed_count = sum(
+            current_value = {
+                "tasks_completed": sum(
                     1 for t in user.tasks if t.status == TaskStatus.COMPLETED
-                )
-                if completed_count >= ach.condition_value:
-                    condition_met = True
+                ),
+                "habit_streak": max((h.streak for h in user.habits), default=0),
+                "level": self._calculate_level(user.experience),
+                "gold": user.gold,
+                "experience": user.experience,
+            }.get(ach.condition_type)
 
-            elif ach.condition_type == "habit_streak":
-                max_streak = max((h.streak for h in user.habits), default=0)
-                if max_streak >= ach.condition_value:
-                    condition_met = True
+            condition_met = (
+                current_value is not None and current_value >= ach.condition_value
+            )
 
             if condition_met:
                 level_before = self._calculate_level(user.experience)
@@ -422,47 +423,45 @@ class CRUDUser(BaseCRUD[User, UserCreate, UserUpdate]):
         health_change = 0
 
         if habit.habit_type == HabitType.POSITIVE and performed:
-            if habit.status == HabitStatus.COMPLETED or habit.overfullfillment > 0:
-                habit.overfullfillment += 1
+            if habit.status == HabitStatus.COMPLETED or habit.overfulfillment > 0:
+                habit.overfulfillment += 1
             habit.streak += 1
             habit.status = HabitStatus.COMPLETED
             exp_gain = int(self.BASE_HABIT_REWARD * size_mult * type_mult)
             gold_gain = int(exp_gain * 0.5)
 
         elif habit.habit_type == HabitType.POSITIVE and not performed:
-            if habit.overfullfillment > 0:
-                habit.overfullfillment -= 1
+            if habit.overfulfillment > 0:
+                habit.overfulfillment -= 1
             else:
                 habit.streak = 0
                 habit.status = HabitStatus.FAILED
 
         elif habit.habit_type == HabitType.NEGATIVE and not performed:
+            # Successfully avoided the bad habit: reward and grow the streak.
             habit.streak += 1
-            # Match test expectations for NEGATIVE habit avoided (performed=False):
-            # gives partial rewards and losses health (weird but tests expect it)
-            exp_gain = int(self.BASE_HABIT_REWARD * size_mult * abs(type_mult) / 2)
-            gold_gain = int(exp_gain * 0.4)
-            health_change = int(-10 * size_mult)
-            habit.status = HabitStatus.COMPLETED
-
-        elif habit.habit_type == HabitType.NEGATIVE and performed:
-            habit.streak = 0
-            # Match test expectations for NEGATIVE habit performed (performed=True):
-            # gives full rewards and no health loss (weird but tests expect it)
             exp_gain = int(self.BASE_HABIT_REWARD * size_mult * abs(type_mult))
             gold_gain = int(exp_gain * 0.4)
             health_change = 0
+            habit.status = HabitStatus.COMPLETED
+
+        elif habit.habit_type == HabitType.NEGATIVE and performed:
+            # Gave in to the bad habit: lose health, no reward, streak resets.
+            habit.streak = 0
+            exp_gain = 0
+            gold_gain = 0
+            health_change = int(-10 * size_mult)
             habit.status = HabitStatus.FAILED
 
         else:  # NEUTRAL
             if performed:
-                if habit.status == HabitStatus.COMPLETED or habit.overfullfillment > 0:
-                    habit.overfullfillment += 1
+                if habit.status == HabitStatus.COMPLETED or habit.overfulfillment > 0:
+                    habit.overfulfillment += 1
                 exp_gain = int(self.BASE_HABIT_REWARD * size_mult * type_mult)
                 gold_gain = int(exp_gain * 0.3)
             else:
-                if habit.overfullfillment > 0:
-                    habit.overfullfillment -= 1
+                if habit.overfulfillment > 0:
+                    habit.overfulfillment -= 1
                 else:
                     habit.streak = 0
                     habit.status = HabitStatus.FAILED
