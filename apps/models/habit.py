@@ -1,6 +1,6 @@
 import enum
 
-from sqlalchemy import Column, Enum, ForeignKey, Integer
+from sqlalchemy import Column, DateTime, Enum, ForeignKey, Integer
 from sqlalchemy.orm import relationship
 
 from apps.db.base import Base
@@ -27,6 +27,7 @@ class Habit(Base):
     overfulfillment = Column(Integer, default=0)
     status = Column(Enum(HabitStatus), default=HabitStatus.TODO)
     streak = Column(Integer, default=0)
+    last_completed_at = Column(DateTime(timezone=True), nullable=True)
     user_id = Column(Integer, ForeignKey("users.id"), nullable=False)
     user = relationship("User", back_populates="habits")
 

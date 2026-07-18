@@ -1,6 +1,6 @@
 import enum
 
-from sqlalchemy import Column, Enum, ForeignKey, Integer
+from sqlalchemy import Column, DateTime, Enum, ForeignKey, Integer
 from sqlalchemy.orm import relationship
 
 from apps.db.base import Base, SimpleBase
@@ -30,6 +30,7 @@ class Task(Base):
     status = Column(Enum(TaskStatus), default=TaskStatus.TODO)
     task_type = Column(Enum(TaskType), default=TaskType.REGULAR)
     task_size = Column(Enum(Size), default=Size.SMALL)
+    last_completed_at = Column(DateTime(timezone=True), nullable=True)
     user_id = Column(Integer, ForeignKey("users.id"), nullable=False)
     user = relationship("User", back_populates="tasks")
 

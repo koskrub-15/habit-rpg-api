@@ -350,6 +350,40 @@ class CRUDUser(BaseCRUD[User, UserCreate, UserUpdate]):
 
     BASE_TASK_REWARD = 10
     BASE_HABIT_REWARD = 5
+    HABIT_OVERFULFILL_DECAY = 0.7
+
+    @staticmethod
+    def _to_utc(dt: datetime) -> datetime:
+        """Coerce a stored datetime to timezone-aware UTC.
+
+        SQLite round-trips ``DateTime(timezone=True)`` as naive values that
+        already hold UTC wall-clock time, so treat naive datetimes as UTC.
+        """
+        return dt if dt.tzinfo is not None else dt.replace(tzinfo=timezone.utc)
+
+    def _completed_today(
+        self, last_completed_at: Optional[datetime], now: datetime
+    ) -> bool:
+        """Whether the last rewarded completion happened on the current UTC day."""
+        return (
+            last_completed_at is not None
+            and self._to_utc(last_completed_at).date() == now.date()
+        )
+
+    def _daily_overfulfillment_decay(self, habit: Habit, now: datetime) -> float:
+        """Grow or reset the daily repeat counter and return the reward multiplier.
+
+        The first rewarded completion of a UTC day resets ``overfulfillment`` to 0
+        (full reward); each further completion the same day increments it, shrinking
+        the reward by ``HABIT_OVERFULFILL_DECAY ** overfulfillment``. This caps daily
+        farming while still granting diminishing rewards for extra effort.
+        """
+        if self._completed_today(habit.last_completed_at, now):
+            habit.overfulfillment += 1
+        else:
+            habit.overfulfillment = 0
+        habit.last_completed_at = now
+        return self.HABIT_OVERFULFILL_DECAY**habit.overfulfillment
 
     def _calculate_level(self, experience: int) -> int:
         """Calculate the user's level based on their experience points."""
@@ -390,12 +424,19 @@ class CRUDUser(BaseCRUD[User, UserCreate, UserUpdate]):
 
     def _apply_task_reward(self, user: User, task: Task) -> dict:
         """Apply reward for completed task to user and task objects in memory."""
+        now = datetime.now(timezone.utc)
         if task.status == TaskStatus.COMPLETED:
             raise HTTPException(
                 status_code=status.HTTP_400_BAD_REQUEST, detail="Task already completed"
             )
+        if self._completed_today(task.last_completed_at, now):
+            raise HTTPException(
+                status_code=status.HTTP_409_CONFLICT,
+                detail="Task already completed today",
+            )
 
         task.status = TaskStatus.COMPLETED
+        task.last_completed_at = now
         multiplier = self.SIZE_MULTIPLIERS.get(task.task_size, 1.0)
         exp_gain = int(self.BASE_TASK_REWARD * multiplier)
         gold_gain = int(exp_gain * 0.6)
@@ -416,6 +457,7 @@ class CRUDUser(BaseCRUD[User, UserCreate, UserUpdate]):
 
     def _apply_habit_reward(self, user: User, habit: Habit, performed: bool) -> dict:
         """Apply habit completion reward to in-memory objects. No DB commit."""
+        now = datetime.now(timezone.utc)
         size_mult = self.SIZE_MULTIPLIERS.get(habit.habit_size, 1.0)
         type_mult = self.HABIT_TYPE_MULTIPLIERS.get(habit.habit_type, 1.0)
         exp_gain = 0
@@ -423,11 +465,10 @@ class CRUDUser(BaseCRUD[User, UserCreate, UserUpdate]):
         health_change = 0
 
         if habit.habit_type == HabitType.POSITIVE and performed:
-            if habit.status == HabitStatus.COMPLETED or habit.overfulfillment > 0:
-                habit.overfulfillment += 1
+            decay = self._daily_overfulfillment_decay(habit, now)
             habit.streak += 1
             habit.status = HabitStatus.COMPLETED
-            exp_gain = int(self.BASE_HABIT_REWARD * size_mult * type_mult)
+            exp_gain = int(self.BASE_HABIT_REWARD * size_mult * type_mult * decay)
             gold_gain = int(exp_gain * 0.5)
 
         elif habit.habit_type == HabitType.POSITIVE and not performed:
@@ -439,8 +480,9 @@ class CRUDUser(BaseCRUD[User, UserCreate, UserUpdate]):
 
         elif habit.habit_type == HabitType.NEGATIVE and not performed:
             # Successfully avoided the bad habit: reward and grow the streak.
+            decay = self._daily_overfulfillment_decay(habit, now)
             habit.streak += 1
-            exp_gain = int(self.BASE_HABIT_REWARD * size_mult * abs(type_mult))
+            exp_gain = int(self.BASE_HABIT_REWARD * size_mult * abs(type_mult) * decay)
             gold_gain = int(exp_gain * 0.4)
             health_change = 0
             habit.status = HabitStatus.COMPLETED
@@ -455,9 +497,8 @@ class CRUDUser(BaseCRUD[User, UserCreate, UserUpdate]):
 
         else:  # NEUTRAL
             if performed:
-                if habit.status == HabitStatus.COMPLETED or habit.overfulfillment > 0:
-                    habit.overfulfillment += 1
-                exp_gain = int(self.BASE_HABIT_REWARD * size_mult * type_mult)
+                decay = self._daily_overfulfillment_decay(habit, now)
+                exp_gain = int(self.BASE_HABIT_REWARD * size_mult * type_mult * decay)
                 gold_gain = int(exp_gain * 0.3)
             else:
                 if habit.overfulfillment > 0:

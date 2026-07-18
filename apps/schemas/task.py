@@ -1,5 +1,6 @@
 from __future__ import annotations
 
+from datetime import datetime
 from typing import List, Optional
 
 from pydantic import BaseModel, ConfigDict
@@ -50,6 +51,7 @@ class TaskResponseShort(BaseSchemaResponse):
     status: TaskStatus
     task_type: TaskType
     task_size: Size
+    last_completed_at: Optional[datetime] = None
 
 
 class TaskResponse(TaskResponseShort):
