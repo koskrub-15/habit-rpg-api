@@ -7,7 +7,8 @@ from sqlalchemy.ext.asyncio import AsyncSession
 from sqlalchemy.orm import selectinload
 
 from apps.CRUD.base import BaseCRUD
-from apps.models.achievement import Achievement
+from apps.models.achievement import Achievement, Reward
+from apps.models.activity_log import ActivityLog, ActivityType
 from apps.models.habit import Habit, HabitStatus, HabitType
 from apps.models.item import Item, ItemType
 from apps.models.store_rotation import ShopItem
@@ -100,6 +101,16 @@ class CRUDUser(BaseCRUD[User, UserCreate, UserUpdate]):
         shop_item.stock -= 1
 
         await self.add_to_inventory(db, user_id, shop_item.item_id)
+
+        item_name = shop_item.item.name if shop_item.item else "item"
+        db.add(
+            ActivityLog(
+                user_id=user_id,  # type: ignore
+                activity_type=ActivityType.ITEM_PURCHASED,  # type: ignore
+                item_id=shop_item.item_id,  # type: ignore
+                description=f"Purchased item: {item_name}",  # type: ignore
+            )
+        )
 
         await db.commit()
         return {"message": "Purchase successful", "new_gold": user.gold}
@@ -238,7 +249,9 @@ class CRUDUser(BaseCRUD[User, UserCreate, UserUpdate]):
             raise HTTPException(status_code=404, detail="User not found")
 
         result = await db.execute(
-            select(Achievement).where(Achievement.id == achievement_id)
+            select(Achievement)
+            .where(Achievement.id == achievement_id)
+            .options(selectinload(Achievement.rewards).selectinload(Reward.items))
         )
         achievement = result.scalar_one_or_none()
         if not achievement:
@@ -249,7 +262,20 @@ class CRUDUser(BaseCRUD[User, UserCreate, UserUpdate]):
                 status_code=409, detail="User already has this achievement"
             )
 
+        level_before = self._calculate_level(user.experience)
         user.achievements.append(achievement)
+        await self._apply_achievement_rewards(db, user, achievement)
+
+        db.add(
+            ActivityLog(
+                user_id=user.id,  # type: ignore
+                activity_type=ActivityType.ACHIEVEMENT_UNLOCKED,  # type: ignore
+                achievement_id=achievement.id,  # type: ignore
+                description=f"Unlocked achievement: {achievement.name}",  # type: ignore
+            )
+        )
+        self._log_level_up(db, user, level_before)
+
         await db.commit()
         await db.refresh(user)
         return achievement
@@ -264,7 +290,11 @@ class CRUDUser(BaseCRUD[User, UserCreate, UserUpdate]):
         if not user:
             return []
 
-        result = await db.execute(select(Achievement))
+        result = await db.execute(
+            select(Achievement).options(
+                selectinload(Achievement.rewards).selectinload(Reward.items)
+            )
+        )
         all_achievements = result.scalars().all()
 
         awarded = []
@@ -286,7 +316,18 @@ class CRUDUser(BaseCRUD[User, UserCreate, UserUpdate]):
                     condition_met = True
 
             if condition_met:
+                level_before = self._calculate_level(user.experience)
                 user.achievements.append(ach)
+                await self._apply_achievement_rewards(db, user, ach)
+                db.add(
+                    ActivityLog(
+                        user_id=user.id,  # type: ignore
+                        activity_type=ActivityType.ACHIEVEMENT_UNLOCKED,  # type: ignore
+                        achievement_id=ach.id,  # type: ignore
+                        description=f"Unlocked achievement: {ach.name}",  # type: ignore
+                    )
+                )
+                self._log_level_up(db, user, level_before)
                 awarded.append(ach)
 
         if awarded:
@@ -315,6 +356,36 @@ class CRUDUser(BaseCRUD[User, UserCreate, UserUpdate]):
         while experience >= level * level:
             level += 1
         return level
+
+    def _log_level_up(self, db: AsyncSession, user: User, level_before: int) -> None:
+        """Write a LEVEL_UP entry if experience gains crossed a level threshold."""
+        level_after = self._calculate_level(user.experience)
+        if level_after > level_before:
+            db.add(
+                ActivityLog(
+                    user_id=user.id,  # type: ignore
+                    activity_type=ActivityType.LEVEL_UP,  # type: ignore
+                    description=f"Reached level {level_after}",  # type: ignore
+                )
+            )
+
+    async def _apply_achievement_rewards(
+        self, db: AsyncSession, user: User, achievement: Achievement
+    ) -> None:
+        """Grant every reward attached to an achievement (gold, exp, health, items).
+
+        An achievement may carry several rewards (M2M), so contributions are summed.
+        Health stays clamped to [0, 100]. Items land in the user's inventory.
+        Caller is responsible for committing.
+        """
+        for reward in achievement.rewards:
+            user.gold += reward.gold
+            user.experience += reward.experience
+            user.health_points = max(
+                0, min(100, user.health_points + reward.health_points)
+            )
+            for item in reward.items:
+                await self.add_to_inventory(db, user.id, item.id)
 
     def _apply_task_reward(self, user: User, task: Task) -> dict:
         """Apply reward for completed task to user and task objects in memory."""
@@ -429,6 +500,8 @@ class CRUDUser(BaseCRUD[User, UserCreate, UserUpdate]):
                 status_code=status.HTTP_404_NOT_FOUND, detail="User not found"
             )
 
+        level_before = self._calculate_level(user.experience)
+
         if activity_type == "task":
             result = await db.execute(
                 select(Task).where(Task.id == activity_id, Task.user_id == user_id)
@@ -439,8 +512,6 @@ class CRUDUser(BaseCRUD[User, UserCreate, UserUpdate]):
                     status_code=status.HTTP_404_NOT_FOUND, detail="Task not found"
                 )
             reward = self._apply_task_reward(user, task)
-
-            from apps.models.activity_log import ActivityLog, ActivityType
 
             db.add(
                 ActivityLog(
@@ -462,8 +533,6 @@ class CRUDUser(BaseCRUD[User, UserCreate, UserUpdate]):
                 )
             reward = self._apply_habit_reward(user, habit, performed)
 
-            from apps.models.activity_log import ActivityLog, ActivityType
-
             db.add(
                 ActivityLog(
                     user_id=user_id,  # type: ignore
@@ -478,6 +547,8 @@ class CRUDUser(BaseCRUD[User, UserCreate, UserUpdate]):
                 status_code=status.HTTP_400_BAD_REQUEST,
                 detail="activity_type must be 'task' or 'habit'",
             )
+
+        self._log_level_up(db, user, level_before)
 
         await db.commit()
 
@@ -609,6 +680,14 @@ class CRUDUser(BaseCRUD[User, UserCreate, UserUpdate]):
             raise HTTPException(
                 status_code=status.HTTP_400_BAD_REQUEST,
                 detail=f"Cannot equip {item_to_equip.item_type.value} in {slot.value} slot",
+            )
+
+        required_level = item_to_equip.required_level or 0
+        user_level = self._calculate_level(user.experience)
+        if required_level > user_level:
+            raise HTTPException(
+                status_code=status.HTTP_400_BAD_REQUEST,
+                detail=f"Requires level {required_level}, you are level {user_level}",
             )
 
         result = await db.execute(

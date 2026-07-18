@@ -8,6 +8,7 @@ from apps.api.router_generator import RouterFactory
 from apps.CRUD.from_models.user import user_crud
 from apps.db.session import get_db
 from apps.models.user import User
+from apps.schemas.achievement import AchievementResponse
 from apps.schemas.user import (
     CompleteActivityRequest,
     CompleteActivityResponse,
@@ -253,6 +254,7 @@ async def remove_from_inventory(
 @router.post(
     "/{user_id}/achievements/{achievement_id}",
     status_code=status.HTTP_200_OK,
+    response_model=AchievementResponse,
     summary="Grant an achievement to a user",
 )
 async def grant_achievement(
