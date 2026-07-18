@@ -25,6 +25,7 @@ achievement_factory = RouterFactory(
     tag="Achievements",
     prefix="/achievements",
     current_user_dependency=Depends(get_current_user),
+    write_requires_superuser=True,
 )
 
 reward_factory = RouterFactory(
@@ -38,6 +39,7 @@ reward_factory = RouterFactory(
     tag="Achievements",
     prefix="/rewards",
     current_user_dependency=Depends(get_current_user),
+    write_requires_superuser=True,
 )
 
 achievement_router = achievement_factory.create_router()

@@ -25,6 +25,7 @@ habit_factory = RouterFactory(
     tag="Habits",
     prefix="/habits",
     current_user_dependency=Depends(get_current_user),
+    owner_field="user_id",
 )
 
 router = habit_factory.create_router()

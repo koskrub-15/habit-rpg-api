@@ -25,6 +25,7 @@ task_factory = RouterFactory(
     tag="Tasks",
     prefix="/tasks",
     current_user_dependency=Depends(get_current_user),
+    owner_field="user_id",
 )
 
 sub_task_factory = RouterFactory(

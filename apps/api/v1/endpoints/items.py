@@ -20,6 +20,7 @@ item_factory = RouterFactory(
     resource_name_plural="items",
     tag="Items",
     prefix="/items",
+    write_requires_superuser=True,
     current_user_dependency=Depends(get_current_user),
 )
 

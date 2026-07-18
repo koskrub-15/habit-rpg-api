@@ -27,6 +27,11 @@ ResponseSchemaType = TypeVar("ResponseSchemaType", bound=BaseModel)
 ResponseShortSchemaType = TypeVar("ResponseShortSchemaType", bound=BaseModel)
 
 
+def _is_superuser(user: Any) -> bool:
+    """Return True if the authenticated user has the superuser flag set."""
+    return bool(getattr(user, "is_superuser", False))
+
+
 def _get_relationship_names_from_schema(schema: Type[BaseModel]) -> List[str]:
     """
     Analyzes a Pydantic schema to identify field names that represent relationships.
@@ -110,6 +115,8 @@ class RouterFactory(
         related_resources: Optional[dict] = None,
         bulk_create_limit: int = 100,
         current_user_dependency: Optional[Any] = None,
+        owner_field: Optional[str] = None,
+        write_requires_superuser: bool = False,
     ):
         prefix = prefix.rstrip("/")
         self.crud = crud
@@ -126,6 +133,8 @@ class RouterFactory(
         self.related_resources = related_resources or {}
         self.bulk_create_limit = bulk_create_limit
         self.current_user_dependency = current_user_dependency
+        self.owner_field = owner_field
+        self.write_requires_superuser = write_requires_superuser
 
         self.router = APIRouter(prefix=prefix, tags=[tag])
 
@@ -155,6 +164,51 @@ class RouterFactory(
     def _add_related_resources_endpoints(self) -> None:
         pass
 
+    def _owner_filter(self, current_user: Any) -> dict:
+        """Restrict list/count queries to the caller's own rows.
+
+        Returns an empty filter for superusers, unauthenticated routers, or
+        resources that are not user-owned, so they see everything.
+        """
+        if self.owner_field and current_user and not _is_superuser(current_user):
+            return {self.owner_field: current_user.id}
+        return {}
+
+    def _check_owner(self, obj: Any, current_user: Any) -> None:
+        """Raise 403 when a non-superuser touches a row they do not own."""
+        if not self.owner_field or current_user is None or _is_superuser(current_user):
+            return
+        if getattr(obj, self.owner_field, None) != current_user.id:
+            raise HTTPException(
+                status_code=status.HTTP_403_FORBIDDEN,
+                detail=f"Not enough permissions to access this {self.resource_name}",
+            )
+
+    def _require_superuser(self, current_user: Any) -> None:
+        """Raise 403 when a non-superuser attempts a superuser-only action."""
+        if current_user is not None and not _is_superuser(current_user):
+            raise HTTPException(
+                status_code=status.HTTP_403_FORBIDDEN,
+                detail="Superuser privileges required",
+            )
+
+    def _check_write_permission(self, existing: Any, current_user: Any) -> None:
+        """Authorize an update/delete on an existing row."""
+        if self.owner_field:
+            self._check_owner(existing, current_user)
+        elif self.write_requires_superuser:
+            self._require_superuser(current_user)
+
+    def _apply_owner_on_create(self, resource_in: Any, current_user: Any) -> None:
+        """Force a non-superuser's new rows to be owned by themselves."""
+        if (
+            self.owner_field
+            and current_user
+            and not _is_superuser(current_user)
+            and hasattr(resource_in, self.owner_field)
+        ):
+            setattr(resource_in, self.owner_field, current_user.id)
+
     def _add_create_endpoint(self):
         """POST / - create resource"""
 
@@ -170,12 +224,9 @@ class RouterFactory(
             current_user: Any = self.current_user_dependency,
         ):
             f"""Create a new {self.resource_name}"""
-            if (
-                current_user
-                and hasattr(resource_in, "user_id")
-                and resource_in.user_id is None
-            ):
-                resource_in.user_id = current_user.id
+            if self.write_requires_superuser:
+                self._require_superuser(current_user)
+            self._apply_owner_on_create(resource_in, current_user)
 
             resource = await self.crud.create(db, resource_in)
 
@@ -225,6 +276,7 @@ class RouterFactory(
                 db,
                 skip=skip,
                 limit=limit,
+                filters=self._owner_filter(current_user),
                 search_fields=search_fields,
                 order_by=order_fields,
                 relationships=self.response_short_schema_relationships,
@@ -242,7 +294,7 @@ class RouterFactory(
             current_user: Any = self.current_user_dependency,
         ):
             f"""Get total number of {self.resource_name_plural}"""
-            count = await self.crud.count(db)
+            count = await self.crud.count(db, filters=self._owner_filter(current_user))
             return {"count": count}
 
     def _add_get_endpoint(self):
@@ -276,6 +328,8 @@ class RouterFactory(
                     detail=f"{self.resource_name.capitalize()} with id {id} not found",
                 )
 
+            self._check_owner(resource_with_relations, current_user)
+
             return self.response_schema.model_validate(resource_with_relations)
 
     def _add_update_endpoint(self):
@@ -293,6 +347,9 @@ class RouterFactory(
             current_user: Any = self.current_user_dependency,
         ):
             f"""Update {self.resource_name} information. Only specified fields will be updated."""
+            existing = await self.crud.get(db, id, raise_not_found=True)
+            self._check_write_permission(existing, current_user)
+
             resource = await self.crud.update(db, id=id, obj_in=resource_in)
 
             if self.with_relations_method:
@@ -322,6 +379,9 @@ class RouterFactory(
             f"""
             Delete {self.resource_name} by ID.
             """
+            existing = await self.crud.get(db, id, raise_not_found=True)
+            self._check_write_permission(existing, current_user)
+
             await self.crud.delete(db, id=id)
             return None
 
@@ -340,6 +400,14 @@ class RouterFactory(
         ):
             f"""Check if a {self.resource_name} with the specified ID exists"""
             resource = await self.crud.get(db, id)
+            if (
+                resource
+                and self.owner_field
+                and current_user
+                and not _is_superuser(current_user)
+                and getattr(resource, self.owner_field, None) != current_user.id
+            ):
+                return {"exists": False}
             return {"exists": resource is not None}
 
     def _add_bulk_create_endpoint(self):
@@ -365,10 +433,10 @@ class RouterFactory(
                     detail=f"Cannot create more than {self.bulk_create_limit} {self.resource_name_plural} at once",
                 )
 
-            if current_user:
-                for res_in in resources_in:
-                    if hasattr(res_in, "user_id") and res_in.user_id is None:
-                        res_in.user_id = current_user.id
+            if self.write_requires_superuser:
+                self._require_superuser(current_user)
+            for res_in in resources_in:
+                self._apply_owner_on_create(res_in, current_user)
 
             resources = await self.crud.bulk_create(db, resources_in)
 

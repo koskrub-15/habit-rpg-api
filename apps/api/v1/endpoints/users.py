@@ -36,6 +36,8 @@ user_factory = RouterFactory(
     prefix="",
     with_relations_method="get_user_with_relations",
     current_user_dependency=Depends(get_current_user),
+    owner_field="id",
+    write_requires_superuser=True,
 )
 
 # Generate standard CRUD endpoints

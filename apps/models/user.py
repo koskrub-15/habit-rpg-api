@@ -1,7 +1,7 @@
 import enum
 from datetime import datetime, timezone
 
-from sqlalchemy import Column, DateTime, Enum, ForeignKey, Integer, String
+from sqlalchemy import Boolean, Column, DateTime, Enum, ForeignKey, Integer, String
 from sqlalchemy.orm import relationship
 
 from apps.db.base import MinimalBase, SimpleBase
@@ -32,6 +32,7 @@ class User(SimpleBase):
     health_points = Column(Integer, default=100)
     experience = Column(Integer, default=0)
     gold = Column(Integer, default=0)
+    is_superuser = Column(Boolean, default=False, nullable=False, server_default="0")
 
     habits = relationship("Habit", back_populates="user")
     tasks = relationship("Task", back_populates="user")
