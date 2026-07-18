@@ -184,3 +184,67 @@ async def test_remove_friend(
     # Verify removal
     list_resp = await client.get("/api/v1/friends/", headers=auth_headers(user1))
     assert len(list_resp.json()) == 0
+
+
+@pytest.mark.asyncio
+async def test_list_incoming_friend_requests(
+    client: AsyncClient, db_session: AsyncSession, auth_headers
+):
+    """The recipient can list incoming pending requests and read the request_id."""
+    user1 = User(name="Sender", email="u1@example.com", password="password")
+    user2 = User(name="Recipient", email="u2@example.com", password="password")
+    db_session.add_all([user1, user2])
+    await db_session.commit()
+
+    req = await client.post(
+        f"/api/v1/friends/request/{user2.id}", headers=auth_headers(user1)
+    )
+    request_id = req.json()["id"]
+
+    resp = await client.get("/api/v1/friends/requests", headers=auth_headers(user2))
+    assert resp.status_code == 200
+    data = resp.json()
+    assert len(data) == 1
+    assert data[0]["id"] == request_id
+    assert data[0]["status"] == "PENDING"
+    assert data[0]["user_id"] == user1.id
+    assert data[0]["user"]["id"] == user1.id
+
+    # The request_id obtained here is usable to accept.
+    accept = await client.post(
+        f"/api/v1/friends/accept/{data[0]['id']}", headers=auth_headers(user2)
+    )
+    assert accept.status_code == 200
+
+
+@pytest.mark.asyncio
+async def test_incoming_requests_excludes_accepted_and_others(
+    client: AsyncClient, db_session: AsyncSession, auth_headers
+):
+    """Only own pending requests are listed; accepted ones drop off."""
+    user1 = User(name="A", email="u1@example.com", password="password")
+    user2 = User(name="B", email="u2@example.com", password="password")
+    db_session.add_all([user1, user2])
+    await db_session.commit()
+
+    # No requests yet for the recipient.
+    empty = await client.get("/api/v1/friends/requests", headers=auth_headers(user2))
+    assert empty.status_code == 200
+    assert empty.json() == []
+
+    req = await client.post(
+        f"/api/v1/friends/request/{user2.id}", headers=auth_headers(user1)
+    )
+    await client.post(
+        f"/api/v1/friends/accept/{req.json()['id']}", headers=auth_headers(user2)
+    )
+
+    # Accepted request no longer shows as pending.
+    after = await client.get("/api/v1/friends/requests", headers=auth_headers(user2))
+    assert after.json() == []
+
+    # The sender has no incoming requests of their own.
+    sender_view = await client.get(
+        "/api/v1/friends/requests", headers=auth_headers(user1)
+    )
+    assert sender_view.json() == []
