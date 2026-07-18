@@ -13,6 +13,7 @@ class ActivityType(enum.Enum):
     ACHIEVEMENT_UNLOCKED = "ACHIEVEMENT_UNLOCKED"
     LEVEL_UP = "LEVEL_UP"
     DEATH = "DEATH"
+    DAILY_MISSED = "DAILY_MISSED"
 
 
 class ActivityLog(MinimalBase):

@@ -29,6 +29,7 @@ class User(SimpleBase):
     last_login = Column(
         DateTime(timezone=True), default=lambda: datetime.now(timezone.utc)
     )
+    last_cron_at = Column(DateTime(timezone=True), nullable=True)
     health_points = Column(Integer, default=100)
     experience = Column(Integer, default=0)
     gold = Column(Integer, default=0)

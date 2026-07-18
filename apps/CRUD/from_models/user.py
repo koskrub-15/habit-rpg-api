@@ -3,7 +3,7 @@ from datetime import datetime, timezone
 from typing import List, Optional
 
 from fastapi import HTTPException, status
-from sqlalchemy import or_, select
+from sqlalchemy import or_, select, update
 from sqlalchemy.ext.asyncio import AsyncSession
 from sqlalchemy.orm import selectinload
 
@@ -13,7 +13,7 @@ from apps.models.activity_log import ActivityLog, ActivityType
 from apps.models.habit import Habit, HabitStatus, HabitType
 from apps.models.item import Item, ItemType
 from apps.models.store_rotation import ShopItem
-from apps.models.task import Size, Task, TaskStatus
+from apps.models.task import Size, Task, TaskStatus, TaskType
 from apps.models.user import (
     EquippedItem,
     Friendship,
@@ -352,6 +352,7 @@ class CRUDUser(BaseCRUD[User, UserCreate, UserUpdate]):
     BASE_TASK_REWARD = 10
     BASE_HABIT_REWARD = 5
     HABIT_OVERFULFILL_DECAY = 0.7
+    DAILY_MISS_PENALTY = 10
 
     @staticmethod
     def _to_utc(dt: datetime) -> datetime:
@@ -637,6 +638,81 @@ class CRUDUser(BaseCRUD[User, UserCreate, UserUpdate]):
         await self.check_and_award_achievements(db, user_id)
 
         return CompleteActivityResponse(**reward)
+
+    async def run_daily_cron(self, db: AsyncSession, *, user_id: int) -> dict:
+        """Roll the user's day over: reset dailies/habits and damage HP for misses.
+
+        Idempotent per UTC day — a second call the same day is a no-op. Every DAILY
+        task left un-completed costs HP (scaled by size, like giving in to a negative
+        habit); dropping to 0 HP triggers the death penalty. Dailies and habits are
+        then reset to TODO for the new day.
+        """
+        user = await self.get(db, user_id, raise_not_found=True)
+        if not user:
+            raise HTTPException(
+                status_code=status.HTTP_404_NOT_FOUND, detail="User not found"
+            )
+        now = datetime.now(timezone.utc)
+
+        if (
+            user.last_cron_at is not None
+            and self._to_utc(user.last_cron_at).date() >= now.date()
+        ):
+            return {
+                "ran": False,
+                "missed_dailies": 0,
+                "health_lost": 0,
+                "current_health": user.health_points,
+                "died": False,
+            }
+
+        result = await db.execute(
+            select(Task)
+            .where(Task.user_id == user_id, Task.task_type == TaskType.DAILY)
+            .options(selectinload(Task.sub_tasks))
+        )
+        dailies = result.scalars().all()
+
+        missed = 0
+        health_lost = 0
+        for task in dailies:
+            if task.status != TaskStatus.COMPLETED:
+                missed += 1
+                health_lost += int(
+                    self.DAILY_MISS_PENALTY
+                    * self.SIZE_MULTIPLIERS.get(task.task_size, 1.0)
+                )
+            task.reset_daily_task()
+
+        await db.execute(
+            update(Habit)
+            .where(Habit.user_id == user_id)
+            .values(status=HabitStatus.TODO)
+        )
+
+        if health_lost:
+            user.health_points = max(0, user.health_points - health_lost)
+        died = await self._apply_death_penalty(db, user)
+
+        if missed:
+            db.add(
+                ActivityLog(
+                    user_id=user_id,  # type: ignore
+                    activity_type=ActivityType.DAILY_MISSED,  # type: ignore
+                    description=f"Missed {missed} daily task(s), lost {health_lost} HP",  # type: ignore
+                )
+            )
+
+        user.last_cron_at = now
+        await db.commit()
+
+        return {
+            "ran": True,
+            "missed_dailies": missed,
+            "health_lost": health_lost,
+            "current_health": user.health_points,
+            "died": died,
+        }
 
     async def get_user_with_relations(
         self, db: AsyncSession, user_id: int, relationships: Optional[list[str]] = None

@@ -1067,3 +1067,105 @@ async def test_get_user_with_relations_not_found(auth_client: AsyncClient):
     response = await auth_client.get("/api/v1/users/99999/details")
     assert response.status_code == 404
     assert "not found" in response.json()["detail"].lower()
+
+
+# ---------------------------------------------------------------------------
+# Tests: daily cron rollover
+# ---------------------------------------------------------------------------
+
+
+@pytest.mark.asyncio
+async def test_cron_missed_daily_damages_and_resets(
+    auth_client: AsyncClient,
+    db_session: AsyncSession,
+    test_user: User,
+    test_daily_task: Task,
+):
+    """A daily left un-completed costs HP and is reset to TODO for the new day."""
+    test_user.health_points = 100
+    test_user.last_cron_at = None
+    test_daily_task.status = TaskStatus.TODO
+    await db_session.commit()
+
+    response = await auth_client.post(f"/api/v1/users/{test_user.id}/cron")
+    assert response.status_code == 200
+    data = response.json()
+    assert data["ran"] is True
+    assert data["missed_dailies"] == 1
+    assert data["health_lost"] == 10  # SMALL daily: 10 * 1.0
+    assert data["current_health"] == 90
+    assert data["died"] is False
+
+    await db_session.refresh(test_daily_task)
+    assert test_daily_task.status == TaskStatus.TODO
+
+
+@pytest.mark.asyncio
+async def test_cron_completed_daily_no_damage(
+    auth_client: AsyncClient,
+    db_session: AsyncSession,
+    test_user: User,
+    test_daily_task: Task,
+):
+    """A completed daily is reset without any HP damage."""
+    test_user.health_points = 100
+    test_user.last_cron_at = None
+    test_daily_task.status = TaskStatus.COMPLETED
+    await db_session.commit()
+
+    response = await auth_client.post(f"/api/v1/users/{test_user.id}/cron")
+    assert response.status_code == 200
+    data = response.json()
+    assert data["missed_dailies"] == 0
+    assert data["health_lost"] == 0
+    assert data["current_health"] == 100
+
+    await db_session.refresh(test_daily_task)
+    assert test_daily_task.status == TaskStatus.TODO
+
+
+@pytest.mark.asyncio
+async def test_cron_is_idempotent_within_day(
+    auth_client: AsyncClient,
+    db_session: AsyncSession,
+    test_user: User,
+    test_daily_task: Task,
+):
+    """Running cron a second time the same UTC day is a no-op."""
+    test_user.health_points = 50
+    test_user.last_cron_at = datetime.now(timezone.utc)
+    test_daily_task.status = TaskStatus.TODO
+    await db_session.commit()
+
+    response = await auth_client.post(f"/api/v1/users/{test_user.id}/cron")
+    assert response.status_code == 200
+    data = response.json()
+    assert data["ran"] is False
+    assert data["health_lost"] == 0
+    assert data["current_health"] == 50
+
+
+@pytest.mark.asyncio
+async def test_cron_missed_daily_can_trigger_death(
+    auth_client: AsyncClient,
+    db_session: AsyncSession,
+    test_user: User,
+    test_daily_task: Task,
+):
+    """Enough missed-daily damage to reach 0 HP triggers the death penalty."""
+    test_user.health_points = 5
+    test_user.gold = 100
+    test_user.experience = 20  # level 5
+    test_user.last_cron_at = None
+    test_daily_task.status = TaskStatus.TODO
+    await db_session.commit()
+
+    response = await auth_client.post(f"/api/v1/users/{test_user.id}/cron")
+    assert response.status_code == 200
+    data = response.json()
+    assert data["died"] is True
+    assert data["current_health"] == 100
+
+    await db_session.refresh(test_user)
+    assert test_user.gold == 0
+    assert test_user.experience == 9  # dropped from level 5 to level 4

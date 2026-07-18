@@ -12,6 +12,7 @@ from apps.schemas.achievement import AchievementResponse
 from apps.schemas.user import (
     CompleteActivityRequest,
     CompleteActivityResponse,
+    DailyCronResponse,
     EquipItemRequest,
     EquippedItemResponse,
     InventoryItemResponse,
@@ -102,6 +103,31 @@ async def reset_daily(
 
     await user_crud.reset_daily_tasks(db, user_id=user_id)
     return
+
+
+@router.post(
+    "/{user_id}/cron",
+    response_model=DailyCronResponse,
+    status_code=status.HTTP_200_OK,
+    summary="Run the daily rollover for a user",
+)
+async def run_cron(
+    user_id: int,
+    db: AsyncSession = Depends(get_db),
+    current_user: User = Depends(get_current_user),
+):
+    """
+    Roll the user's day over: reset daily tasks and habits, and apply HP damage for
+    any daily tasks left un-completed. Idempotent — running it twice the same day is
+    a no-op.
+    """
+    if user_id != current_user.id and not current_user.is_superuser:
+        raise HTTPException(
+            status_code=status.HTTP_403_FORBIDDEN,
+            detail="Not enough permissions to modify another user's data",
+        )
+
+    return await user_crud.run_daily_cron(db, user_id=user_id)
 
 
 @router.post(
