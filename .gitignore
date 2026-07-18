@@ -24,6 +24,8 @@
 !alembic/**
 !tests/
 !tests/**
+!scripts/
+!scripts/**
 !pyproject.toml
 apps/**/__pycache__/
 apps/**/*.pyc

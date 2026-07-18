@@ -235,9 +235,15 @@ sees/edits themselves, and only a superuser lists everyone or creates users via 
 (regular signup goes through `POST /auth/register`).
 
 A **superuser** (`User.is_superuser`) bypasses every ownership and catalog check. The flag is
-not exposed on `UserCreate`/`UserUpdate` (no self-elevation) — set it directly in the DB or a
-seed script. `SubTask` has no `user_id`; its ownership is transitive via its parent task and is
-not yet enforced at the factory level.
+not exposed on `UserCreate`/`UserUpdate` (no self-elevation) — bootstrap one with the seed
+script:
+
+```bash
+uv run python -m scripts.create_superuser --email admin@habit.rpg --password secret123 --name Admin
+```
+
+It creates the user (or promotes an existing one). `SubTask` has no `user_id`; its ownership is
+transitive via its parent task and is not yet enforced at the factory level.
 
 Hand-written endpoints still add their own checks where needed (for example,
 `complete_activity` verifies the user is completing their own task).
