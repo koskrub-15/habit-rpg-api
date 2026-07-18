@@ -223,12 +223,13 @@ async def complete_habit(habit_id: int, ...):
 
 ### Security
 
-RouterFactory enforces authorization through two optional parameters, plus a superuser bypass:
+RouterFactory enforces authorization through three optional parameters, plus a superuser bypass:
 
-| Parameter                       | Use for                          | Effect                                                                                                                                |
-| ------------------------------- | -------------------------------- | ------------------------------------------------------------------------------------------------------------------------------------- |
-| `owner_field="user_id"`         | User-owned rows (habits, tasks…) | List/count filtered to the caller; get/update/delete/exists return 403/hidden for other owners; create forces the field to the caller |
-| `write_requires_superuser=True` | Shared catalog (items, shop…)    | Anyone authenticated may read; only a superuser may create/update/delete/bulk                                                         |
+| Parameter                                                   | Use for                           | Effect                                                                                                                                                  |
+| ----------------------------------------------------------- | --------------------------------- | ------------------------------------------------------------------------------------------------------------------------------------------------------- |
+| `owner_field="user_id"`                                     | User-owned rows (habits, tasks…)  | List/count filtered to the caller; get/update/delete/exists return 403/hidden for other owners; create forces the field to the caller                   |
+| `owner_parent={"crud": …, "fk_field": …, "owner_field": …}` | Child rows owned via a parent row | Same rules, but ownership is resolved through the parent (e.g. `SubTask.task_id → Task.user_id`); create verifies the caller owns the referenced parent |
+| `write_requires_superuser=True`                             | Shared catalog (items, shop…)     | Anyone authenticated may read; only a superuser may create/update/delete/bulk                                                                           |
 
 `User` uses `owner_field="id"` **and** `write_requires_superuser=True`: each user only
 sees/edits themselves, and only a superuser lists everyone or creates users via the factory
@@ -242,8 +243,8 @@ script:
 uv run python -m scripts.create_superuser --email admin@habit.rpg --password secret123 --name Admin
 ```
 
-It creates the user (or promotes an existing one). `SubTask` has no `user_id`; its ownership is
-transitive via its parent task and is not yet enforced at the factory level.
+It creates the user (or promotes an existing one). `SubTask` has no `user_id` of its own; it is
+guarded with `owner_parent` so ownership is resolved transitively through its parent `Task`.
 
 Hand-written endpoints still add their own checks where needed (for example,
 `complete_activity` verifies the user is completing their own task).

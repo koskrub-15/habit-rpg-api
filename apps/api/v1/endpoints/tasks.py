@@ -39,6 +39,7 @@ sub_task_factory = RouterFactory(
     tag="Tasks",
     prefix="/sub_tasks",
     current_user_dependency=Depends(get_current_user),
+    owner_parent={"crud": task_crud, "fk_field": "task_id", "owner_field": "user_id"},
 )
 
 task_router = task_factory.create_router()
