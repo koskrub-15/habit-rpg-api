@@ -254,17 +254,20 @@ async def test_complete_task_not_found(
 
 @pytest.mark.asyncio
 async def test_complete_task_wrong_user(
-    auth_client: AsyncClient,
+    client: AsyncClient,
     db_session: AsyncSession,
     test_task: Task,
     create_test_user,
+    auth_headers,
 ):
-    """Completing a task belonging to another user returns 404."""
+    """A regular user cannot complete an activity for another user (403)."""
+    caller = await create_test_user(name="Caller", email="caller@example.com")
     other_user = await create_test_user(name="Other User", email="other@example.com")
 
-    response = await auth_client.post(
+    response = await client.post(
         f"/api/v1/users/{other_user.id}/complete-activity",
         json={"activity_type": "task", "activity_id": test_task.id},
+        headers=auth_headers(caller),
     )
     assert response.status_code == 403
 

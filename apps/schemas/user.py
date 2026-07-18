@@ -53,6 +53,7 @@ class UserResponse(UserResponseShort):
     health_points: int = 100
     experience: int = 0
     gold: int = 0
+    is_superuser: bool = False
     habits: List[HabitResponseShort] = []
     tasks: List[TaskResponse] = []
     achievements: List[AchievementResponseShort] = []

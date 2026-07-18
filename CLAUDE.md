@@ -223,7 +223,30 @@ async def complete_habit(habit_id: int, ...):
 
 ### Security
 
-RouterFactory does **not** perform ownership checks — it is purely mechanical CRUD. Security logic is written by hand only in specific endpoints (for example, `complete_activity` checks that the user is completing their own task).
+RouterFactory enforces authorization through two optional parameters, plus a superuser bypass:
+
+| Parameter                       | Use for                          | Effect                                                                                                                                |
+| ------------------------------- | -------------------------------- | ------------------------------------------------------------------------------------------------------------------------------------- |
+| `owner_field="user_id"`         | User-owned rows (habits, tasks…) | List/count filtered to the caller; get/update/delete/exists return 403/hidden for other owners; create forces the field to the caller |
+| `write_requires_superuser=True` | Shared catalog (items, shop…)    | Anyone authenticated may read; only a superuser may create/update/delete/bulk                                                         |
+
+`User` uses `owner_field="id"` **and** `write_requires_superuser=True`: each user only
+sees/edits themselves, and only a superuser lists everyone or creates users via the factory
+(regular signup goes through `POST /auth/register`).
+
+A **superuser** (`User.is_superuser`) bypasses every ownership and catalog check. The flag is
+not exposed on `UserCreate`/`UserUpdate` (no self-elevation) — bootstrap one with the seed
+script:
+
+```bash
+uv run python -m scripts.create_superuser --email admin@habit.rpg --password secret123 --name Admin
+```
+
+It creates the user (or promotes an existing one). `SubTask` has no `user_id`; its ownership is
+transitive via its parent task and is not yet enforced at the factory level.
+
+Hand-written endpoints still add their own checks where needed (for example,
+`complete_activity` verifies the user is completing their own task).
 
 ---
 
@@ -300,7 +323,7 @@ All tests use SQLite in-memory — no real database needed.
 
 ### Test pattern
 
-Tests create resources with another user's `user_id` (`create_test_user_for_X`) but make requests through `auth_client` (as `test_user`). RouterFactory allows this — it does not check ownership.
+Tests create resources with another user's `user_id` (`create_test_user_for_X`) but make requests through `auth_client` (as `test_user`). This works because **`test_user` is a superuser** and bypasses ownership checks — the bulk of the suite tests CRUD mechanics, not authorization. Ownership enforcement for regular users lives in `tests/api/v1/test_authorization.py` (fixtures `normal_user` / `normal_client`).
 
 ```python
 def test_create_habit(auth_client, create_test_user_for_habits):

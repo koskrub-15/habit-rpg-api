@@ -37,6 +37,7 @@ shop_rotation_factory = RouterFactory(
     tag="Store",
     prefix="/shop_rotations",
     current_user_dependency=Depends(get_current_user),
+    write_requires_superuser=True,
 )
 
 shop_item_factory = RouterFactory(
@@ -50,6 +51,7 @@ shop_item_factory = RouterFactory(
     tag="Store",
     prefix="/shop_items",
     current_user_dependency=Depends(get_current_user),
+    write_requires_superuser=True,
 )
 
 shop_rotation_item_factory = RouterFactory(
@@ -63,6 +65,7 @@ shop_rotation_item_factory = RouterFactory(
     tag="Store",
     prefix="/shop_rotation_items",
     current_user_dependency=Depends(get_current_user),
+    write_requires_superuser=True,
 )
 
 

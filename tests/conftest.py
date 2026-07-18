@@ -63,13 +63,38 @@ async def client_fixture(db_session: AsyncSession) -> AsyncClient:
 @pytest_asyncio.fixture(name="test_user")
 async def test_user_fixture(db_session: AsyncSession) -> User:
     """
-    Creates a test user in the database.
+    Creates a superuser used by the bulk of the CRUD tests.
+
+    The default authenticated user is a superuser so that the existing tests,
+    which exercise CRUD mechanics across resources owned by other users, keep
+    passing. Ownership enforcement for regular users is covered separately in
+    test_authorization.py via the `normal_user` / `normal_client` fixtures.
     """
     user_in = UserCreate(
         email="test@example.com", password="password123", name="Test User"
     )
     user = await user_crud.create(db_session, obj_in=user_in)
+    user.is_superuser = True
+    await db_session.commit()
+    await db_session.refresh(user)
     return user
+
+
+@pytest_asyncio.fixture(name="normal_user")
+async def normal_user_fixture(db_session: AsyncSession) -> User:
+    """Creates a regular (non-superuser) user for authorization tests."""
+    user_in = UserCreate(
+        email="normal@example.com", password="password123", name="Normal User"
+    )
+    return await user_crud.create(db_session, obj_in=user_in)
+
+
+@pytest_asyncio.fixture(name="normal_client")
+async def normal_client_fixture(client: AsyncClient, normal_user: User) -> AsyncClient:
+    """Returns a client authenticated as a regular (non-superuser) user."""
+    access_token = create_access_token(subject=normal_user.id)
+    client.headers.update({"Authorization": f"Bearer {access_token}"})
+    return client
 
 
 @pytest_asyncio.fixture(name="auth_client")

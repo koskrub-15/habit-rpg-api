@@ -19,6 +19,7 @@ activity_log_factory = RouterFactory(
     resource_name_plural="activity_logs",
     tag="Activity Log",
     prefix="/activity-log",
+    owner_field="user_id",
     current_user_dependency=Depends(get_current_user),
 )
 

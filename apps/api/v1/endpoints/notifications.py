@@ -26,6 +26,7 @@ notification_factory = RouterFactory(
     tag="Notifications",
     prefix="/notifications",
     current_user_dependency=Depends(get_current_user),
+    owner_field="user_id",
 )
 
 user_notification_preference_factory = RouterFactory(
@@ -39,6 +40,7 @@ user_notification_preference_factory = RouterFactory(
     tag="Notifications",
     prefix="/user_notification_preferences",
     current_user_dependency=Depends(get_current_user),
+    owner_field="user_id",
 )
 
 notification_router = notification_factory.create_router()
