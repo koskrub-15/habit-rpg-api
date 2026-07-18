@@ -20,6 +20,8 @@ from apps.models.user import User
 HABITS = "/api/v1/habits"
 ITEMS = "/api/v1/items"
 USERS = "/api/v1/users"
+TASKS = "/api/v1/tasks"
+SUB_TASKS = "/api/v1/sub_tasks"
 
 
 def _habit_payload(name: str = "Read", user_id: int | None = None) -> dict:
@@ -284,3 +286,150 @@ async def test_cannot_complete_another_users_habit(
         f"{HABITS}/{habit['id']}/complete", headers=auth_headers(normal_user)
     )
     assert resp.status_code == 403
+
+
+# --- Transitive ownership: sub_tasks (owned via their parent task) ----------
+
+
+async def _create_task_as(client: AsyncClient, headers: dict, name: str = "T") -> dict:
+    resp = await client.post(f"{TASKS}/", json={"name": name}, headers=headers)
+    assert resp.status_code == 201, resp.text
+    return resp.json()
+
+
+async def _create_sub_task_as(
+    client: AsyncClient, headers: dict, task_id: int, name: str = "step"
+) -> dict:
+    resp = await client.post(
+        f"{SUB_TASKS}/",
+        json={"name": name, "task_id": task_id},
+        headers=headers,
+    )
+    assert resp.status_code == 201, resp.text
+    return resp.json()
+
+
+@pytest.mark.asyncio
+async def test_can_create_sub_task_on_own_task(
+    client: AsyncClient, normal_user: User, auth_headers
+):
+    task = await _create_task_as(client, auth_headers(normal_user), name="Mine")
+    sub = await _create_sub_task_as(client, auth_headers(normal_user), task["id"])
+    assert sub["task_id"] == task["id"]
+
+
+@pytest.mark.asyncio
+async def test_cannot_create_sub_task_on_others_task(
+    client: AsyncClient, normal_user: User, create_test_user, auth_headers
+):
+    other = await create_test_user()
+    task = await _create_task_as(client, auth_headers(other), name="Theirs")
+    resp = await client.post(
+        f"{SUB_TASKS}/",
+        json={"name": "step", "task_id": task["id"]},
+        headers=auth_headers(normal_user),
+    )
+    assert resp.status_code == 403
+
+
+@pytest.mark.asyncio
+async def test_sub_task_list_only_returns_own(
+    client: AsyncClient, normal_user: User, create_test_user, auth_headers
+):
+    other = await create_test_user()
+    their_task = await _create_task_as(client, auth_headers(other), name="Theirs")
+    await _create_sub_task_as(
+        client, auth_headers(other), their_task["id"], name="theirs"
+    )
+    my_task = await _create_task_as(client, auth_headers(normal_user), name="Mine")
+    await _create_sub_task_as(
+        client, auth_headers(normal_user), my_task["id"], name="mine"
+    )
+
+    resp = await client.get(f"{SUB_TASKS}/", headers=auth_headers(normal_user))
+    assert resp.status_code == 200
+    names = {s["name"] for s in resp.json()}
+    assert names == {"mine"}
+
+
+@pytest.mark.asyncio
+async def test_sub_task_count_only_counts_own(
+    client: AsyncClient, normal_user: User, create_test_user, auth_headers
+):
+    other = await create_test_user()
+    their_task = await _create_task_as(client, auth_headers(other), name="Theirs")
+    await _create_sub_task_as(client, auth_headers(other), their_task["id"])
+    my_task = await _create_task_as(client, auth_headers(normal_user), name="Mine")
+    await _create_sub_task_as(client, auth_headers(normal_user), my_task["id"])
+
+    resp = await client.get(f"{SUB_TASKS}/count", headers=auth_headers(normal_user))
+    assert resp.json() == {"count": 1}
+
+
+@pytest.mark.asyncio
+async def test_get_others_sub_task_is_forbidden(
+    client: AsyncClient, normal_user: User, create_test_user, auth_headers
+):
+    other = await create_test_user()
+    task = await _create_task_as(client, auth_headers(other), name="Theirs")
+    sub = await _create_sub_task_as(client, auth_headers(other), task["id"])
+
+    resp = await client.get(
+        f"{SUB_TASKS}/{sub['id']}", headers=auth_headers(normal_user)
+    )
+    assert resp.status_code == 403
+
+
+@pytest.mark.asyncio
+async def test_update_others_sub_task_is_forbidden(
+    client: AsyncClient, normal_user: User, create_test_user, auth_headers
+):
+    other = await create_test_user()
+    task = await _create_task_as(client, auth_headers(other), name="Theirs")
+    sub = await _create_sub_task_as(client, auth_headers(other), task["id"])
+
+    resp = await client.patch(
+        f"{SUB_TASKS}/{sub['id']}",
+        json={"name": "Hacked"},
+        headers=auth_headers(normal_user),
+    )
+    assert resp.status_code == 403
+
+
+@pytest.mark.asyncio
+async def test_delete_others_sub_task_is_forbidden(
+    client: AsyncClient, normal_user: User, create_test_user, auth_headers
+):
+    other = await create_test_user()
+    task = await _create_task_as(client, auth_headers(other), name="Theirs")
+    sub = await _create_sub_task_as(client, auth_headers(other), task["id"])
+
+    resp = await client.delete(
+        f"{SUB_TASKS}/{sub['id']}", headers=auth_headers(normal_user)
+    )
+    assert resp.status_code == 403
+
+
+@pytest.mark.asyncio
+async def test_exists_hides_others_sub_task(
+    client: AsyncClient, normal_user: User, create_test_user, auth_headers
+):
+    other = await create_test_user()
+    task = await _create_task_as(client, auth_headers(other), name="Theirs")
+    sub = await _create_sub_task_as(client, auth_headers(other), task["id"])
+
+    resp = await client.get(
+        f"{SUB_TASKS}/{sub['id']}/exists", headers=auth_headers(normal_user)
+    )
+    assert resp.json() == {"exists": False}
+
+
+@pytest.mark.asyncio
+async def test_superuser_can_access_any_sub_task(
+    client: AsyncClient, test_user: User, normal_user: User, auth_headers
+):
+    task = await _create_task_as(client, auth_headers(normal_user), name="Theirs")
+    sub = await _create_sub_task_as(client, auth_headers(normal_user), task["id"])
+
+    resp = await client.get(f"{SUB_TASKS}/{sub['id']}", headers=auth_headers(test_user))
+    assert resp.status_code == 200

@@ -265,6 +265,38 @@ class BaseCRUD(Generic[ModelType, CreateSchemaType, UpdateSchemaType]):
                 detail=DATABASE_ERROR_MESSAGE,
             )
 
+    async def list_ids(
+        self, db: AsyncSession, filters: Optional[Dict[str, Any]] = None
+    ) -> List[Any]:
+        """Return the ids of all records matching the given equality filters.
+
+        Selects only the id column (no full rows, no pagination), which makes it
+        suitable for resolving ownership across a parent relationship.
+        """
+        try:
+            stmt = select(getattr(self.model, self.id_field))
+
+            if filters:
+                conditions = []
+                for field, value in filters.items():
+                    if hasattr(self.model, field):
+                        if isinstance(value, list):
+                            conditions.append(getattr(self.model, field).in_(value))
+                        else:
+                            conditions.append(getattr(self.model, field) == value)
+                if conditions:
+                    stmt = stmt.where(and_(*conditions))
+
+            result = await db.execute(stmt)
+            return list(result.scalars().all())
+
+        except SQLAlchemyError as e:
+            logger.error(f"Database error listing ids of {self.model.__name__}: {e}")
+            raise HTTPException(
+                status_code=status.HTTP_500_INTERNAL_SERVER_ERROR,
+                detail=DATABASE_ERROR_MESSAGE,
+            )
+
     async def update(
         self,
         db: AsyncSession,
