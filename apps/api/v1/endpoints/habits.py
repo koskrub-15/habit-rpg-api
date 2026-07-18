@@ -1,4 +1,4 @@
-from fastapi import Depends
+from fastapi import Depends, HTTPException, status
 from sqlalchemy.ext.asyncio import AsyncSession
 
 from apps.api.deps import get_current_user
@@ -41,6 +41,12 @@ async def complete_habit(
     Mark a habit as performed.
     """
     habit = await habit_crud.get(db, habit_id, raise_not_found=True)
+
+    if habit.user_id != current_user.id and not current_user.is_superuser:  # type: ignore[union-attr]
+        raise HTTPException(
+            status_code=status.HTTP_403_FORBIDDEN,
+            detail="Not enough permissions to complete another user's habit",
+        )
 
     return await user_crud.complete_activity(
         db,

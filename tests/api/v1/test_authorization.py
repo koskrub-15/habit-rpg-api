@@ -218,3 +218,69 @@ async def test_user_cannot_create_via_factory(
         f"{USERS}/", json=payload, headers=auth_headers(normal_user)
     )
     assert resp.status_code == 403
+
+
+# --- Hand-written user endpoints -------------------------------------------
+
+
+@pytest.mark.asyncio
+async def test_cannot_reset_another_users_dailies(
+    client: AsyncClient, normal_user: User, create_test_user, auth_headers
+):
+    other = await create_test_user()
+    resp = await client.post(
+        f"{USERS}/{other.id}/reset-daily", headers=auth_headers(normal_user)
+    )
+    assert resp.status_code == 403
+
+
+@pytest.mark.asyncio
+async def test_cannot_read_another_users_details(
+    client: AsyncClient, normal_user: User, create_test_user, auth_headers
+):
+    other = await create_test_user()
+    resp = await client.get(
+        f"{USERS}/{other.id}/details", headers=auth_headers(normal_user)
+    )
+    assert resp.status_code == 403
+
+
+@pytest.mark.asyncio
+async def test_grant_achievement_requires_superuser(
+    client: AsyncClient, normal_user: User, auth_headers
+):
+    """Granting achievements is a superuser-only action, even to oneself."""
+    resp = await client.post(
+        f"{USERS}/{normal_user.id}/achievements/1", headers=auth_headers(normal_user)
+    )
+    assert resp.status_code == 403
+
+
+@pytest.mark.asyncio
+async def test_superuser_can_grant_achievement(
+    client: AsyncClient, test_user: User, normal_user: User, auth_headers
+):
+    ach = await client.post(
+        "/api/v1/achievements/",
+        json={"name": "First Steps", "condition_type": "streak", "condition_value": 1},
+        headers=auth_headers(test_user),
+    )
+    assert ach.status_code == 201, ach.text
+    resp = await client.post(
+        f"{USERS}/{normal_user.id}/achievements/{ach.json()['id']}",
+        headers=auth_headers(test_user),
+    )
+    assert resp.status_code == 200
+
+
+@pytest.mark.asyncio
+async def test_cannot_complete_another_users_habit(
+    client: AsyncClient, normal_user: User, create_test_user, auth_headers
+):
+    other = await create_test_user()
+    habit = await _create_habit_as(client, auth_headers(other), name="Theirs")
+
+    resp = await client.post(
+        f"{HABITS}/{habit['id']}/complete", headers=auth_headers(normal_user)
+    )
+    assert resp.status_code == 403

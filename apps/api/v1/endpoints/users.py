@@ -60,7 +60,7 @@ async def complete_activity(
     Mark a task as completed or record a habit performance.
     Awards experience and gold to the user.
     """
-    if user_id != current_user.id:
+    if user_id != current_user.id and not current_user.is_superuser:
         raise HTTPException(
             status_code=status.HTTP_403_FORBIDDEN,
             detail="Not enough permissions to modify another user's data",
@@ -93,6 +93,12 @@ async def reset_daily(
     """
     Reset the status of all daily tasks for a specific user to 'TODO'.
     """
+    if user_id != current_user.id and not current_user.is_superuser:
+        raise HTTPException(
+            status_code=status.HTTP_403_FORBIDDEN,
+            detail="Not enough permissions to modify another user's data",
+        )
+
     await user_crud.reset_daily_tasks(db, user_id=user_id)
     return
 
@@ -112,7 +118,7 @@ async def add_to_inventory(
     """
     Add a specified quantity of an item to a user's inventory.
     """
-    if user_id != current_user.id:
+    if user_id != current_user.id and not current_user.is_superuser:
         raise HTTPException(
             status_code=status.HTTP_403_FORBIDDEN,
             detail="Not enough permissions to modify another user's inventory",
@@ -137,7 +143,7 @@ async def get_inventory(
     """
     Get all items in a user's inventory.
     """
-    if user_id != current_user.id:
+    if user_id != current_user.id and not current_user.is_superuser:
         raise HTTPException(
             status_code=status.HTTP_403_FORBIDDEN,
             detail="Not enough permissions to view another user's inventory",
@@ -160,7 +166,7 @@ async def equip_item(
     """
     Equip an item from the user's inventory into a specific slot.
     """
-    if user_id != current_user.id:
+    if user_id != current_user.id and not current_user.is_superuser:
         raise HTTPException(
             status_code=status.HTTP_403_FORBIDDEN,
             detail="Not enough permissions to modify another user's equipment",
@@ -185,7 +191,7 @@ async def unequip_item(
     """
     Unequip an item from a specific slot.
     """
-    if user_id != current_user.id:
+    if user_id != current_user.id and not current_user.is_superuser:
         raise HTTPException(
             status_code=status.HTTP_403_FORBIDDEN,
             detail="Not enough permissions to modify another user's equipment",
@@ -208,7 +214,7 @@ async def get_equipped(
     """
     Get all currently equipped items for a user.
     """
-    if user_id != current_user.id:
+    if user_id != current_user.id and not current_user.is_superuser:
         raise HTTPException(
             status_code=status.HTTP_403_FORBIDDEN,
             detail="Not enough permissions to view another user's equipment",
@@ -232,7 +238,7 @@ async def remove_from_inventory(
     """
     Remove a specified quantity of an item from the user's inventory.
     """
-    if user_id != current_user.id:
+    if user_id != current_user.id and not current_user.is_superuser:
         raise HTTPException(
             status_code=status.HTTP_403_FORBIDDEN,
             detail="Not enough permissions to modify another user's inventory",
@@ -258,6 +264,12 @@ async def grant_achievement(
     """
     Manually grant an achievement to a user.
     """
+    if not current_user.is_superuser:
+        raise HTTPException(
+            status_code=status.HTTP_403_FORBIDDEN,
+            detail="Superuser privileges required",
+        )
+
     return await user_crud.grant_achievement(
         db, user_id=user_id, achievement_id=achievement_id
     )
@@ -276,4 +288,10 @@ async def get_user_details(
     """
     Get detailed user information including all related tasks, habits, achievements, etc.
     """
+    if user_id != current_user.id and not current_user.is_superuser:
+        raise HTTPException(
+            status_code=status.HTTP_403_FORBIDDEN,
+            detail="Not enough permissions to view another user's data",
+        )
+
     return await user_crud.get_user_with_relations(db, user_id)
