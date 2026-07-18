@@ -15,7 +15,7 @@ class HabitCreate(SimpleBaseSchemaCreate):
     habit_size: Size = Size.SMALL
     status: HabitStatus = HabitStatus.TODO
     streak: int = 0
-    overfullfillment: int = 0
+    overfulfillment: int = 0
 
 
 class HabitUpdate(BaseModel):
@@ -25,7 +25,7 @@ class HabitUpdate(BaseModel):
     habit_size: Optional[Size] = None
     status: Optional[HabitStatus] = None
     streak: Optional[int] = None
-    overfullfillment: Optional[int] = None
+    overfulfillment: Optional[int] = None
     model_config = ConfigDict(from_attributes=True)
 
 
@@ -35,7 +35,7 @@ class HabitResponseShort(BaseSchemaResponse):
     habit_size: Size
     status: HabitStatus
     streak: int = 0
-    overfullfillment: int = 0
+    overfulfillment: int = 0
 
 
 class HabitResponse(HabitResponseShort):

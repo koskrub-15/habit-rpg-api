@@ -24,7 +24,7 @@ class Habit(Base):
 
     habit_type = Column(Enum(HabitType), default="NEUTRAL")
     habit_size = Column(Enum(Size), default=Size.SMALL)
-    overfullfillment = Column(Integer, default=0)
+    overfulfillment = Column(Integer, default=0)
     status = Column(Enum(HabitStatus), default=HabitStatus.TODO)
     streak = Column(Integer, default=0)
     user_id = Column(Integer, ForeignKey("users.id"), nullable=False)

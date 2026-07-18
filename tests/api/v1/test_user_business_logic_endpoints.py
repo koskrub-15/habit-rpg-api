@@ -57,7 +57,7 @@ async def test_positive_habit(db_session: AsyncSession, test_user: User) -> Habi
         habit_type=HabitType.POSITIVE,
         habit_size=Size.MEDIUM,
         streak=0,
-        overfullfillment=0,
+        overfulfillment=0,
         status=HabitStatus.TODO,
     )
     db_session.add(habit)
@@ -76,7 +76,7 @@ async def test_negative_habit(db_session: AsyncSession, test_user: User) -> Habi
         habit_type=HabitType.NEGATIVE,
         habit_size=Size.MEDIUM,
         streak=0,
-        overfullfillment=0,
+        overfulfillment=0,
         status=HabitStatus.TODO,
     )
     db_session.add(habit)
@@ -95,7 +95,7 @@ async def test_neutral_habit(db_session: AsyncSession, test_user: User) -> Habit
         habit_type=HabitType.NEUTRAL,
         habit_size=Size.SMALL,
         streak=0,
-        overfullfillment=0,
+        overfulfillment=0,
         status=HabitStatus.TODO,
     )
     db_session.add(habit)
@@ -340,15 +340,15 @@ async def test_complete_positive_habit_not_performed_resets_streak(
 
 
 @pytest.mark.asyncio
-async def test_positive_habit_overfullfillment_increases_on_repeat(
+async def test_positive_habit_overfulfillment_increases_on_repeat(
     auth_client: AsyncClient,
     db_session: AsyncSession,
     test_user: User,
     test_positive_habit: Habit,
 ):
-    """Performing a completed positive habit increments overfullfillment."""
+    """Performing a completed positive habit increments overfulfillment."""
     test_positive_habit.status = HabitStatus.COMPLETED
-    test_positive_habit.overfullfillment = 0
+    test_positive_habit.overfulfillment = 0
     await db_session.commit()
 
     response = await auth_client.post(
@@ -362,18 +362,18 @@ async def test_positive_habit_overfullfillment_increases_on_repeat(
     assert response.status_code == 200
 
     await db_session.refresh(test_positive_habit)
-    assert test_positive_habit.overfullfillment == 1
+    assert test_positive_habit.overfulfillment == 1
 
 
 @pytest.mark.asyncio
-async def test_positive_habit_overfullfillment_decreases_on_miss(
+async def test_positive_habit_overfulfillment_decreases_on_miss(
     auth_client: AsyncClient,
     db_session: AsyncSession,
     test_user: User,
     test_positive_habit: Habit,
 ):
-    """Missing a positive habit with overfullfillment reduces it instead of resetting streak."""
-    test_positive_habit.overfullfillment = 2
+    """Missing a positive habit with overfulfillment reduces it instead of resetting streak."""
+    test_positive_habit.overfulfillment = 2
     test_positive_habit.streak = 3
     await db_session.commit()
 
@@ -388,10 +388,10 @@ async def test_positive_habit_overfullfillment_decreases_on_miss(
     assert response.status_code == 200
 
     await db_session.refresh(test_positive_habit)
-    assert test_positive_habit.overfullfillment == 1
+    assert test_positive_habit.overfulfillment == 1
     assert (
         test_positive_habit.streak == 3
-    )  # streak preserved because overfullfillment was > 0
+    )  # streak preserved because overfulfillment was > 0
 
 
 # ---------------------------------------------------------------------------
@@ -406,7 +406,7 @@ async def test_negative_habit_not_performed_gives_rewards(
     test_user: User,
     test_negative_habit: Habit,
 ):
-    """Successfully avoiding a negative habit gives partial exp/gold."""
+    """Successfully avoiding a negative habit gives full exp/gold, no health loss."""
     response = await auth_client.post(
         f"/api/v1/users/{test_user.id}/complete-activity",
         json={
@@ -418,10 +418,10 @@ async def test_negative_habit_not_performed_gives_rewards(
     assert response.status_code == 200
     data = response.json()
 
-    # MEDIUM, NEGATIVE, not performed: 5 * 2.0 * 1.0 / 2 = 5 exp, 5 * 0.4 = 2 gold
-    assert data["exp_gained"] == 5
-    assert data["gold_gained"] == 2
-    assert data["health_change"] == int(-10 * 2.0)  # -20
+    # MEDIUM, NEGATIVE, avoided: 5 * 2.0 * 1.0 = 10 exp, 10 * 0.4 = 4 gold
+    assert data["exp_gained"] == 10
+    assert data["gold_gained"] == 4
+    assert data["health_change"] == 0
 
     await db_session.refresh(test_negative_habit)
     assert test_negative_habit.streak == 1
@@ -435,7 +435,7 @@ async def test_negative_habit_performed_resets_streak(
     test_user: User,
     test_negative_habit: Habit,
 ):
-    """Giving in to a negative habit resets streak and marks as FAILED."""
+    """Giving in to a negative habit loses health, gives no reward, resets streak."""
     test_negative_habit.streak = 3
     await db_session.commit()
 
@@ -449,9 +449,10 @@ async def test_negative_habit_performed_resets_streak(
     )
     assert response.status_code == 200
     data = response.json()
-    # Still gives some exp/gold: 5 * 2.0 * 1.0 = 10 exp, 10 * 0.4 = 4 gold
-    assert data["exp_gained"] == 10
-    assert data["gold_gained"] == 4
+    # Giving in: no reward, health loss of 10 * 2.0 = 20
+    assert data["exp_gained"] == 0
+    assert data["gold_gained"] == 0
+    assert data["health_change"] == int(-10 * 2.0)  # -20
 
     await db_session.refresh(test_negative_habit)
     assert test_negative_habit.streak == 0
@@ -465,7 +466,7 @@ async def test_negative_habit_health_capped_at_zero(
     test_user: User,
     test_negative_habit: Habit,
 ):
-    """Health should not go below 0."""
+    """Health should not go below 0 when giving in to a negative habit."""
     test_user.health_points = 5
     await db_session.commit()
 
@@ -474,7 +475,7 @@ async def test_negative_habit_health_capped_at_zero(
         json={
             "activity_type": "habit",
             "activity_id": test_negative_habit.id,
-            "performed": False,
+            "performed": True,
         },
     )
     assert response.status_code == 200
