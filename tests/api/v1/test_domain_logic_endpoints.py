@@ -350,3 +350,133 @@ async def test_buy_item_logs_item_purchased(
     logs = await _logs_of_type(db_session, user.id, ActivityType.ITEM_PURCHASED)
     assert len(logs) == 1
     assert logs[0].item_id == item.id
+
+
+# ---------------------------------------------------------------------------
+# Point 5: POST /tasks/{id}/complete shortcut
+# ---------------------------------------------------------------------------
+
+
+@pytest.mark.asyncio
+async def test_complete_task_endpoint_awards_and_completes(
+    auth_client: AsyncClient,
+    db_session: AsyncSession,
+    test_user: User,
+):
+    """The task-complete shortcut awards exp/gold and marks the task COMPLETED."""
+    task = Task(
+        name="Shortcut task",
+        user_id=test_user.id,
+        task_type=TaskType.REGULAR,
+        task_size=Size.MEDIUM,
+        status=TaskStatus.TODO,
+    )
+    db_session.add(task)
+    await db_session.commit()
+    await db_session.refresh(task)
+
+    response = await auth_client.post(f"/api/v1/tasks/{task.id}/complete")
+    assert response.status_code == 200
+    data = response.json()
+    assert data["activity_type"] == "Task"
+    assert data["exp_gained"] == 20  # MEDIUM: 10 * 2.0
+
+    await db_session.refresh(task)
+    assert task.status == TaskStatus.COMPLETED
+
+
+@pytest.mark.asyncio
+async def test_complete_task_endpoint_forbidden_for_other_user(
+    client: AsyncClient,
+    db_session: AsyncSession,
+    create_test_user,
+    auth_headers,
+):
+    """A regular user cannot complete another user's task via the shortcut."""
+    caller = await create_test_user(name="Caller", email="caller_t@example.com")
+    owner = await create_test_user(name="Owner", email="owner_t@example.com")
+    task = Task(
+        name="Owned task",
+        user_id=owner.id,
+        task_type=TaskType.REGULAR,
+        task_size=Size.SMALL,
+        status=TaskStatus.TODO,
+    )
+    db_session.add(task)
+    await db_session.commit()
+    await db_session.refresh(task)
+
+    response = await client.post(
+        f"/api/v1/tasks/{task.id}/complete", headers=auth_headers(caller)
+    )
+    assert response.status_code == 403
+
+
+# ---------------------------------------------------------------------------
+# Point 6: extended achievement condition types
+# ---------------------------------------------------------------------------
+
+
+@pytest.mark.asyncio
+async def test_achievements_awarded_by_level_gold_and_experience(
+    auth_client: AsyncClient,
+    db_session: AsyncSession,
+    test_user: User,
+):
+    """Completing a LARGE task satisfies level/gold/experience achievement conditions."""
+    db_session.add_all(
+        [
+            Achievement(name="XP", condition_type="experience", condition_value=50),
+            Achievement(name="Rich", condition_type="gold", condition_value=30),
+            Achievement(name="Leveled", condition_type="level", condition_value=5),
+        ]
+    )
+    task = Task(
+        name="Big task",
+        user_id=test_user.id,
+        task_type=TaskType.REGULAR,
+        task_size=Size.LARGE,
+        status=TaskStatus.TODO,
+    )
+    db_session.add(task)
+    await db_session.commit()
+    await db_session.refresh(task)
+
+    # LARGE task: +50 exp, +30 gold, level -> 8
+    response = await auth_client.post(f"/api/v1/tasks/{task.id}/complete")
+    assert response.status_code == 200
+
+    unlocked = await _logs_of_type(
+        db_session, test_user.id, ActivityType.ACHIEVEMENT_UNLOCKED
+    )
+    assert len(unlocked) == 3
+
+
+@pytest.mark.asyncio
+async def test_unknown_condition_type_is_not_awarded(
+    auth_client: AsyncClient,
+    db_session: AsyncSession,
+    test_user: User,
+):
+    """An achievement with an unrecognized condition_type is never auto-awarded."""
+    db_session.add(
+        Achievement(name="Mystery", condition_type="phase_of_moon", condition_value=1)
+    )
+    task = Task(
+        name="Some task",
+        user_id=test_user.id,
+        task_type=TaskType.REGULAR,
+        task_size=Size.LARGE,
+        status=TaskStatus.TODO,
+    )
+    db_session.add(task)
+    await db_session.commit()
+    await db_session.refresh(task)
+
+    response = await auth_client.post(f"/api/v1/tasks/{task.id}/complete")
+    assert response.status_code == 200
+
+    unlocked = await _logs_of_type(
+        db_session, test_user.id, ActivityType.ACHIEVEMENT_UNLOCKED
+    )
+    assert len(unlocked) == 0
