@@ -11,6 +11,7 @@ from apps.schemas.item import (
     ItemResponse,
     ItemResponseShort,
     ItemUpdate,
+    SellItemResponse,
     UseItemResponse,
 )
 from apps.api.router_generator import RouterFactory
@@ -47,3 +48,20 @@ async def use_item(
     apply its effect (restores HP by the item's heal_amount).
     """
     return await user_crud.use_item(db, user_id=current_user.id, item_id=item_id)
+
+
+@router.post(
+    "/{item_id}/sell",
+    response_model=SellItemResponse,
+    summary="Sell an item from your inventory for gold",
+)
+async def sell_item(
+    item_id: int,
+    db: AsyncSession = Depends(get_db),
+    current_user: User = Depends(get_current_user),
+):
+    """
+    Sell one unit of an item from the current user's inventory. Refunds half the
+    item's cheapest shop price as gold (a flat minimum for items sold nowhere).
+    """
+    return await user_crud.sell_item(db, user_id=current_user.id, item_id=item_id)
