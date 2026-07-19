@@ -16,6 +16,7 @@ class ActivityType(enum.Enum):
     LEVEL_UP = "LEVEL_UP"
     DEATH = "DEATH"
     DAILY_MISSED = "DAILY_MISSED"
+    BOSS_DEFEATED = "BOSS_DEFEATED"
 
 
 class ActivityLog(MinimalBase):

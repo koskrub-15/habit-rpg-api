@@ -1,5 +1,6 @@
 from fastapi import APIRouter
 from apps.api.v1.endpoints.achievements import achievement_router, reward_router
+from apps.api.v1.endpoints.bosses import router as bosses_router
 from apps.api.v1.endpoints.friends import router as friends_router
 from apps.api.v1.endpoints.habits import router as habits_router
 from apps.api.v1.endpoints.items import router as items_router
@@ -35,3 +36,4 @@ api_router.include_router(shop_item_router)
 api_router.include_router(shop_rotation_item_router)
 api_router.include_router(task_router)
 api_router.include_router(sub_task_router)
+api_router.include_router(bosses_router)
