@@ -16,7 +16,6 @@ class ItemCreate(SimpleBaseSchemaCreate):
     heal_amount: int = Field(default=0, ge=0)
     required_level: int = Field(default=0, ge=0)
     rarity: Rarity = Rarity.COMMON
-    available_in_shop: bool = False
     theme: ItemTheme = ItemTheme.COMMON
 
 
@@ -30,7 +29,6 @@ class ItemUpdate(BaseModel):
     heal_amount: Optional[int] = None
     required_level: Optional[int] = None
     rarity: Optional[Rarity] = None
-    available_in_shop: Optional[bool] = None
     theme: Optional[ItemTheme] = None
     model_config = ConfigDict(from_attributes=True)
 
@@ -46,7 +44,6 @@ class ItemResponse(ItemResponseShort):
     pet_power: int = 0
     heal_amount: int = 0
     required_level: int = 0
-    available_in_shop: bool = False
     theme: ItemTheme = ItemTheme.COMMON
 
 

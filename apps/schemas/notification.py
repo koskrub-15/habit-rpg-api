@@ -19,6 +19,7 @@ class NotificationUpdate(BaseModel):
     description: Optional[str] = None
     notification_type: Optional[NotificationType] = None
     message: Optional[str] = None
+    is_read: Optional[bool] = None
     model_config = ConfigDict(from_attributes=True)
 
 
@@ -26,6 +27,12 @@ class NotificationResponse(BaseSchemaResponse):
     user_id: int
     notification_type: NotificationType
     message: str
+    is_read: bool = False
+
+
+class UnreadCountResponse(BaseModel):
+    unread: int
+    model_config = ConfigDict(from_attributes=True)
 
 
 class UserNotificationPreferenceCreate(SimpleBaseSchemaCreate):

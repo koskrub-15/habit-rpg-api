@@ -30,6 +30,7 @@ class Notification(Base):
     user_id = Column(Integer, ForeignKey("users.id"), nullable=False)
     notification_type = Column(Enum(NotificationType), nullable=False)
     message = Column(String(500), nullable=False)
+    is_read = Column(Boolean, default=False, nullable=False, server_default="0")
     created_at = Column(
         DateTime(timezone=True), default=lambda: datetime.now(timezone.utc)
     )

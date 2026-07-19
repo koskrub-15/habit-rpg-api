@@ -16,6 +16,7 @@ from apps.schemas.user import (
     EquipItemRequest,
     EquippedItemResponse,
     InventoryItemResponse,
+    LeaderboardEntry,
     UnequipItemRequest,
     UpdateInventoryRequest,
     UserCreate,
@@ -43,7 +44,23 @@ user_factory = RouterFactory(
     write_requires_superuser=True,
 )
 
-# Generate standard CRUD endpoints
+
+@router.get(
+    "/leaderboard",
+    response_model=List[LeaderboardEntry],
+    summary="Global leaderboard by experience",
+)
+async def leaderboard(
+    limit: int = 10,
+    db: AsyncSession = Depends(get_db),
+    current_user: User = Depends(get_current_user),
+):
+    """Rank the top users by experience (defaults to the top 10)."""
+    return await user_crud.get_leaderboard(db, limit=limit)
+
+
+# Generate standard CRUD endpoints. Registered after the routes above so that
+# concrete paths (e.g. /leaderboard) win over the generated /{id} matcher.
 user_crud_router = user_factory.create_router()
 router.include_router(user_crud_router)
 
