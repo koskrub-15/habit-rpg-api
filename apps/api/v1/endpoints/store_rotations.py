@@ -12,6 +12,7 @@ from apps.CRUD.from_models.user import user_crud
 from apps.db.session import get_db
 from apps.models.user import User
 from apps.schemas.store_rotation import (
+    CurrentShopResponse,
     ShopItemCreate,
     ShopItemResponse,
     ShopItemResponseShort,
@@ -75,6 +76,16 @@ shop_rotation_item_router = shop_rotation_item_factory.create_router()
 
 
 shop_router = APIRouter(prefix="/shop", tags=["Shop"])
+
+
+@shop_router.get("/current", response_model=CurrentShopResponse)
+async def current_shop(
+    db: AsyncSession = Depends(get_db),
+    current_user: User = Depends(get_current_user),
+):
+    """Return the currently active shop rotation and its featured items."""
+    rotation, items = await shop_rotation_crud.get_current_shop(db)
+    return CurrentShopResponse(rotation=rotation, items=items)
 
 
 @shop_router.post("/buy/{shop_item_id}")

@@ -1,7 +1,7 @@
 from __future__ import annotations
 
 from datetime import datetime
-from typing import Optional
+from typing import List, Optional
 
 from pydantic import BaseModel, ConfigDict, model_validator
 
@@ -102,3 +102,17 @@ class ShopRotationItemResponseShort(BaseSchemaResponse):
 
 class ShopRotationItemResponse(ShopRotationItemResponseShort):
     pass
+
+
+class CurrentShopItem(BaseModel):
+    slot_in_display: Optional[int] = None
+    is_random_common: bool
+    is_themed: bool
+    shop_item: Optional[ShopItemResponse] = None
+    model_config = ConfigDict(from_attributes=True)
+
+
+class CurrentShopResponse(BaseModel):
+    rotation: Optional[ShopRotationResponseShort] = None
+    items: List[CurrentShopItem] = []
+    model_config = ConfigDict(from_attributes=True)
