@@ -55,3 +55,10 @@ class UseItemResponse(BaseModel):
     health_restored: int
     current_health: int
     model_config = ConfigDict(from_attributes=True)
+
+
+class SellItemResponse(BaseModel):
+    item_id: int
+    gold_earned: int
+    new_gold: int
+    model_config = ConfigDict(from_attributes=True)

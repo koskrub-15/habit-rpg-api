@@ -3,7 +3,7 @@ from datetime import datetime, timezone
 from typing import List, Optional
 
 from fastapi import HTTPException, status
-from sqlalchemy import or_, select, update
+from sqlalchemy import func, or_, select, update
 from sqlalchemy.ext.asyncio import AsyncSession
 from sqlalchemy.orm import selectinload
 
@@ -156,6 +156,7 @@ class CRUDUser(BaseCRUD[User, UserCreate, UserUpdate]):
         )
 
         await db.commit()
+        await self.check_and_award_achievements(db, user_id)
         return {"message": "Purchase successful", "new_gold": user.gold}
 
     # Friends methods
@@ -221,6 +222,8 @@ class CRUDUser(BaseCRUD[User, UserCreate, UserUpdate]):
         friendship.status = FriendshipStatus.ACCEPTED
         await db.commit()
         await db.refresh(friendship)
+        await self.check_and_award_achievements(db, user_id)
+        await self.check_and_award_achievements(db, friendship.user_id)
         return friendship
 
     async def decline_friend_request(
@@ -372,6 +375,30 @@ class CRUDUser(BaseCRUD[User, UserCreate, UserUpdate]):
         )
         all_achievements = result.scalars().all()
 
+        friends_count = (
+            await db.execute(
+                select(func.count())
+                .select_from(Friendship)
+                .where(
+                    or_(
+                        Friendship.user_id == user_id,
+                        Friendship.friend_id == user_id,
+                    ),
+                    Friendship.status == FriendshipStatus.ACCEPTED,
+                )
+            )
+        ).scalar_one()
+        items_purchased = (
+            await db.execute(
+                select(func.count())
+                .select_from(ActivityLog)
+                .where(
+                    ActivityLog.user_id == user_id,
+                    ActivityLog.activity_type == ActivityType.ITEM_PURCHASED,
+                )
+            )
+        ).scalar_one()
+
         awarded = []
         for ach in all_achievements:
             if ach in user.achievements:
@@ -385,6 +412,8 @@ class CRUDUser(BaseCRUD[User, UserCreate, UserUpdate]):
                 "level": self._calculate_level(user.experience),
                 "gold": user.gold,
                 "experience": user.experience,
+                "friends_count": friends_count,
+                "items_purchased": items_purchased,
             }.get(ach.condition_type)
 
             condition_met = (
@@ -434,6 +463,8 @@ class CRUDUser(BaseCRUD[User, UserCreate, UserUpdate]):
     BASE_HABIT_REWARD = 5
     HABIT_OVERFULFILL_DECAY = 0.7
     DAILY_MISS_PENALTY = 10
+    SELL_RATE = 0.5
+    SELL_FLOOR = 1
 
     @staticmethod
     def _to_utc(dt: datetime) -> datetime:
@@ -1005,6 +1036,7 @@ class CRUDUser(BaseCRUD[User, UserCreate, UserUpdate]):
 
         await db.commit()
         await db.refresh(new_equipped_item)
+        await self.check_and_award_achievements(db, user_id)
         return new_equipped_item
 
     async def unequip_item(self, db: AsyncSession, user_id: int, slot: SlotType):
@@ -1115,6 +1147,76 @@ class CRUDUser(BaseCRUD[User, UserCreate, UserUpdate]):
             "item_id": item_id,
             "health_restored": health_restored,
             "current_health": user.health_points,
+        }
+
+    async def _sell_value(self, db: AsyncSession, item_id: int) -> int:
+        """Gold refunded for selling one unit: half the cheapest shop price.
+
+        Items never sold in any shop refund a flat ``SELL_FLOOR``.
+        """
+        cheapest = (
+            await db.execute(
+                select(func.min(ShopItem.price)).where(ShopItem.item_id == item_id)
+            )
+        ).scalar_one_or_none()
+        if not cheapest:
+            return self.SELL_FLOOR
+        return max(self.SELL_FLOOR, int(cheapest * self.SELL_RATE))
+
+    async def sell_item(self, db: AsyncSession, user_id: int, item_id: int) -> dict:
+        """Sell one unit of an inventory item back for gold.
+
+        Removes one unit from the inventory and credits the user with the item's
+        sell value. Items not owned are rejected.
+        """
+        user = await self.get(db, user_id, raise_not_found=True)
+        if not user:
+            raise HTTPException(
+                status_code=status.HTTP_404_NOT_FOUND, detail="User not found"
+            )
+
+        result = await db.execute(select(Item).where(Item.id == item_id))
+        item = result.scalar_one_or_none()
+        if not item:
+            raise HTTPException(
+                status_code=status.HTTP_404_NOT_FOUND, detail="Item not found"
+            )
+
+        result = await db.execute(
+            select(InventoryItem).where(
+                InventoryItem.user_id == user_id, InventoryItem.item_id == item_id
+            )
+        )
+        inventory_item = result.scalars().first()
+        if not inventory_item:
+            raise HTTPException(
+                status_code=status.HTTP_400_BAD_REQUEST,
+                detail="Item not in inventory",
+            )
+
+        gold_earned = await self._sell_value(db, item_id)
+        user.gold += gold_earned
+
+        if inventory_item.quantity > 1:
+            inventory_item.quantity -= 1
+        else:
+            await db.delete(inventory_item)
+
+        db.add(
+            ActivityLog(
+                user_id=user_id,  # type: ignore
+                activity_type=ActivityType.ITEM_SOLD,  # type: ignore
+                item_id=item_id,  # type: ignore
+                description=f"Sold item: {item.name} (+{gold_earned} gold)",  # type: ignore
+            )
+        )
+        await db.commit()
+        await self.check_and_award_achievements(db, user_id)
+
+        return {
+            "item_id": item_id,
+            "gold_earned": gold_earned,
+            "new_gold": user.gold,
         }
 
     async def get_user_stats(self, db: AsyncSession, user_id: int) -> dict:
