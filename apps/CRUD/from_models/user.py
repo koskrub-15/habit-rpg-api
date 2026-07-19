@@ -17,7 +17,7 @@ from apps.models.notification import (
     NotificationType,
     UserNotificationPreference,
 )
-from apps.models.store_rotation import ShopItem
+from apps.models.store_rotation import ShopItem, ShopRotation, ShopRotationItem
 from apps.models.task import Size, Task, TaskStatus, TaskType
 from apps.models.user import (
     EquippedItem,
@@ -60,6 +60,41 @@ class CRUDUser(BaseCRUD[User, UserCreate, UserUpdate]):
         await db.commit()
         return
 
+    async def _enforce_rotation_availability(
+        self, db: AsyncSession, shop_item_id: int, now: datetime
+    ) -> None:
+        """Rotation-exclusive items may only be bought while their rotation is live.
+
+        Items never attached to any rotation are always buyable (subject to the
+        item's own availability window).
+        """
+        is_rotation_item = (
+            await db.execute(
+                select(ShopRotationItem.id).where(
+                    ShopRotationItem.shop_item_id == shop_item_id
+                )
+            )
+        ).first()
+        if is_rotation_item is None:
+            return
+
+        is_featured_now = (
+            await db.execute(
+                select(ShopRotationItem.id)
+                .join(ShopRotation, ShopRotationItem.rotation_id == ShopRotation.id)
+                .where(
+                    ShopRotationItem.shop_item_id == shop_item_id,
+                    ShopRotation.start_date <= now,
+                    ShopRotation.end_date > now,
+                )
+            )
+        ).first()
+        if is_featured_now is None:
+            raise HTTPException(
+                status_code=status.HTTP_400_BAD_REQUEST,
+                detail="This item is only available during its shop rotation",
+            )
+
     async def buy_item(self, db: AsyncSession, user_id: int, shop_item_id: int):
         """Buy item from the shop."""
         result = await db.execute(
@@ -96,6 +131,8 @@ class CRUDUser(BaseCRUD[User, UserCreate, UserUpdate]):
                 status_code=status.HTTP_400_BAD_REQUEST,
                 detail="Out of stock",
             )
+
+        await self._enforce_rotation_availability(db, shop_item_id, now)
 
         if user.gold < shop_item.price:
             raise HTTPException(
