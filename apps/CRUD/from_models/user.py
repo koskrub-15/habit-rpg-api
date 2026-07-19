@@ -10,6 +10,7 @@ from sqlalchemy.orm import selectinload
 from apps.CRUD.base import BaseCRUD
 from apps.models.achievement import Achievement, Reward
 from apps.models.activity_log import ActivityLog, ActivityType
+from apps.models.boss import Boss, BossFight, BossFightStatus
 from apps.models.habit import Habit, HabitStatus, HabitType
 from apps.models.item import Item, ItemType
 from apps.models.notification import (
@@ -398,6 +399,16 @@ class CRUDUser(BaseCRUD[User, UserCreate, UserUpdate]):
                 )
             )
         ).scalar_one()
+        bosses_defeated = (
+            await db.execute(
+                select(func.count())
+                .select_from(BossFight)
+                .where(
+                    BossFight.user_id == user_id,
+                    BossFight.status == BossFightStatus.WON,
+                )
+            )
+        ).scalar_one()
 
         awarded = []
         for ach in all_achievements:
@@ -414,6 +425,7 @@ class CRUDUser(BaseCRUD[User, UserCreate, UserUpdate]):
                 "experience": user.experience,
                 "friends_count": friends_count,
                 "items_purchased": items_purchased,
+                "bosses_defeated": bosses_defeated,
             }.get(ach.condition_type)
 
             condition_met = (
@@ -1237,6 +1249,140 @@ class CRUDUser(BaseCRUD[User, UserCreate, UserUpdate]):
             "attack": sum(e.item.attack for e in equipped if e.item),
             "defense": sum(e.item.defense for e in equipped if e.item),
             "pet_power": sum(e.item.pet_power for e in equipped if e.item),
+        }
+
+    async def get_active_boss_fight(
+        self, db: AsyncSession, user_id: int, boss_id: int
+    ) -> Optional[BossFight]:
+        """Return the user's in-progress fight against a boss, if any."""
+        result = await db.execute(
+            select(BossFight).where(
+                BossFight.user_id == user_id,
+                BossFight.boss_id == boss_id,
+                BossFight.status == BossFightStatus.ACTIVE,
+            )
+        )
+        return result.scalar_one_or_none()
+
+    async def attack_boss(self, db: AsyncSession, user_id: int, boss_id: int) -> dict:
+        """Fight a boss for one round using the character's equipped combat stats.
+
+        Player damage is ``attack + pet_power`` of equipped items minus the boss's
+        defense (a chip of at least 1 always lands). If the blow does not finish the
+        boss, it strikes back for ``attack`` minus the player's equipped defense;
+        dropping to 0 HP triggers the usual death penalty and loses the fight.
+
+        A fresh fight starts automatically at the boss's full health and persists
+        between rounds. Defeating a boss grants its gold/experience once — a boss
+        already beaten cannot be farmed again, though a lost fight may be retried.
+        """
+        user = await self.get(db, user_id, raise_not_found=True)
+        if not user:
+            raise HTTPException(
+                status_code=status.HTTP_404_NOT_FOUND, detail="User not found"
+            )
+
+        boss = (
+            await db.execute(select(Boss).where(Boss.id == boss_id))
+        ).scalar_one_or_none()
+        if not boss:
+            raise HTTPException(
+                status_code=status.HTTP_404_NOT_FOUND, detail="Boss not found"
+            )
+
+        user_level = self._calculate_level(user.experience)
+        if boss.required_level > user_level:
+            raise HTTPException(
+                status_code=status.HTTP_400_BAD_REQUEST,
+                detail=f"Requires level {boss.required_level}, you are level {user_level}",
+            )
+
+        already_won = (
+            await db.execute(
+                select(BossFight.id).where(
+                    BossFight.user_id == user_id,
+                    BossFight.boss_id == boss_id,
+                    BossFight.status == BossFightStatus.WON,
+                )
+            )
+        ).first()
+        if already_won is not None:
+            raise HTTPException(
+                status_code=status.HTTP_400_BAD_REQUEST,
+                detail="Boss already defeated",
+            )
+
+        fight = await self.get_active_boss_fight(db, user_id, boss_id)
+        if fight is None:
+            fight = BossFight(
+                user_id=user_id,  # type: ignore
+                boss_id=boss_id,  # type: ignore
+                boss_health=boss.max_health,  # type: ignore
+                rounds=0,  # type: ignore
+                status=BossFightStatus.ACTIVE,  # type: ignore
+            )
+            db.add(fight)
+
+        equipped = await self.get_equipped_items(db, user_id)
+        attack = sum(e.item.attack + e.item.pet_power for e in equipped if e.item)
+        defense = sum(e.item.defense for e in equipped if e.item)
+
+        player_damage = max(1, attack - boss.defense)
+        fight.boss_health = max(0, fight.boss_health - player_damage)
+        fight.rounds += 1
+
+        boss_damage = 0
+        died = False
+        reward_gold = 0
+        reward_experience = 0
+        level_before = self._calculate_level(user.experience)
+
+        if fight.boss_health == 0:
+            fight.status = BossFightStatus.WON
+            reward_gold = boss.reward_gold
+            reward_experience = boss.reward_experience
+            user.gold += reward_gold
+            user.experience += reward_experience
+            db.add(
+                ActivityLog(
+                    user_id=user_id,  # type: ignore
+                    activity_type=ActivityType.BOSS_DEFEATED,  # type: ignore
+                    description=f"Defeated boss: {boss.name}",  # type: ignore
+                )
+            )
+            await self._notify(
+                db,
+                user_id,
+                NotificationType.SYSTEM,
+                "Boss defeated",
+                f"You defeated {boss.name}!",
+            )
+            await self._handle_level_up(db, user, level_before)
+        else:
+            boss_damage = max(0, boss.attack - defense)
+            user.health_points = max(0, user.health_points - boss_damage)
+            died = await self._apply_death_penalty(db, user)
+            if died:
+                fight.status = BossFightStatus.LOST
+
+        await db.commit()
+        await db.refresh(fight)
+
+        if fight.status == BossFightStatus.WON:
+            await self.check_and_award_achievements(db, user_id)
+
+        return {
+            "boss_id": boss_id,
+            "player_damage": player_damage,
+            "boss_damage": boss_damage,
+            "boss_health": fight.boss_health,
+            "player_health": user.health_points,
+            "rounds": fight.rounds,
+            "status": fight.status,
+            "died": died,
+            "reward_gold": reward_gold,
+            "reward_experience": reward_experience,
+            "new_level": self._calculate_level(user.experience),
         }
 
 
