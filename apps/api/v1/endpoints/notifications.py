@@ -1,4 +1,5 @@
 from fastapi import Depends
+from sqlalchemy.ext.asyncio import AsyncSession
 
 from apps.api.deps import get_current_user
 from apps.api.router_generator import RouterFactory
@@ -6,10 +7,13 @@ from apps.CRUD.from_models.notification import (
     notification_crud,
     user_notification_preference_crud,
 )
+from apps.db.session import get_db
+from apps.models.user import User
 from apps.schemas.notification import (
     NotificationCreate,
     NotificationResponse,
     NotificationUpdate,
+    UnreadCountResponse,
     UserNotificationPreferenceCreate,
     UserNotificationPreferenceResponse,
     UserNotificationPreferenceUpdate,
@@ -47,3 +51,45 @@ notification_router = notification_factory.create_router()
 user_notification_preference_router = (
     user_notification_preference_factory.create_router()
 )
+
+
+@notification_router.get(
+    "/unread/count",
+    response_model=UnreadCountResponse,
+    summary="Count the current user's unread notifications",
+)
+async def unread_count(
+    db: AsyncSession = Depends(get_db),
+    current_user: User = Depends(get_current_user),
+):
+    """Return how many notifications the current user has not read yet."""
+    count = await notification_crud.count_unread(db, current_user.id)
+    return UnreadCountResponse(unread=count)
+
+
+@notification_router.post(
+    "/read-all",
+    response_model=UnreadCountResponse,
+    summary="Mark all of the current user's notifications read",
+)
+async def mark_all_read(
+    db: AsyncSession = Depends(get_db),
+    current_user: User = Depends(get_current_user),
+):
+    """Mark every unread notification read; returns the remaining unread count (0)."""
+    await notification_crud.mark_all_read(db, current_user.id)
+    return UnreadCountResponse(unread=0)
+
+
+@notification_router.post(
+    "/{notification_id}/read",
+    response_model=NotificationResponse,
+    summary="Mark a single notification read",
+)
+async def mark_read(
+    notification_id: int,
+    db: AsyncSession = Depends(get_db),
+    current_user: User = Depends(get_current_user),
+):
+    """Mark one of the current user's notifications read."""
+    return await notification_crud.mark_read(db, notification_id, current_user.id)

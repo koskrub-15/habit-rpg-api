@@ -19,7 +19,7 @@ from apps.models.notification import (
     UserNotificationPreference,
 )
 from apps.models.store_rotation import ShopItem, ShopRotation, ShopRotationItem
-from apps.models.task import Size, Task, TaskStatus, TaskType
+from apps.models.task import Size, SubTask, Task, TaskStatus, TaskType
 from apps.models.user import (
     EquippedItem,
     Friendship,
@@ -802,6 +802,85 @@ class CRUDUser(BaseCRUD[User, UserCreate, UserUpdate]):
         await self.check_and_award_achievements(db, user_id)
 
         return CompleteActivityResponse(**reward)
+
+    async def complete_sub_task(self, db: AsyncSession, sub_task_id: int) -> dict:
+        """Mark a sub-task done and auto-complete its parent once all are done.
+
+        Sub-tasks are checklist steps of a parent task. Completing the final
+        outstanding one finishes the parent task through the normal reward path
+        (experience, gold, level-up), so a checklist actually pays out. If the
+        parent is already completed (or completed earlier today) only the sub-task
+        state changes.
+        """
+        now = datetime.now(timezone.utc)
+        result = await db.execute(
+            select(SubTask)
+            .where(SubTask.id == sub_task_id)
+            .options(selectinload(SubTask.task).selectinload(Task.sub_tasks))
+        )
+        sub_task = result.scalar_one_or_none()
+        if sub_task is None:
+            raise HTTPException(
+                status_code=status.HTTP_404_NOT_FOUND, detail="Sub-task not found"
+            )
+
+        task = sub_task.task
+        sub_task.status = TaskStatus.COMPLETED
+        await db.flush()
+
+        all_done = all(st.status == TaskStatus.COMPLETED for st in task.sub_tasks)
+        task_reward = None
+        if (
+            all_done
+            and task.status != TaskStatus.COMPLETED
+            and not self._completed_today(task.last_completed_at, now)
+        ):
+            task_reward = await self.complete_activity(
+                db,
+                user_id=task.user_id,
+                activity_type="task",
+                activity_id=task.id,
+            )
+        else:
+            await db.commit()
+
+        return {
+            "sub_task_id": sub_task_id,
+            "task_id": task.id,
+            "task_completed": task_reward is not None,
+            "task_reward": task_reward,
+        }
+
+    def _rank_users(self, users: List[User]) -> List[dict]:
+        """Turn an already-sorted list of users into ranked leaderboard rows."""
+        return [
+            {
+                "rank": index,
+                "user_id": user.id,
+                "name": user.name,
+                "level": self._calculate_level(user.experience),
+                "experience": user.experience,
+            }
+            for index, user in enumerate(users, start=1)
+        ]
+
+    async def get_leaderboard(self, db: AsyncSession, *, limit: int = 10) -> List[dict]:
+        """Top users ranked by experience (ties broken by id)."""
+        result = await db.execute(
+            select(User).order_by(User.experience.desc(), User.id).limit(limit)
+        )
+        return self._rank_users(list(result.scalars().all()))
+
+    async def get_friends_leaderboard(
+        self, db: AsyncSession, user_id: int
+    ) -> List[dict]:
+        """The user and their accepted friends ranked by experience."""
+        me = await self.get(db, user_id, raise_not_found=True)
+        assert me is not None  # raise_not_found=True raises 404 before returning None
+        friends = await self.get_friends(db, user_id)
+        everyone = [me, *friends]
+        everyone.sort(key=lambda u: (-u.experience, u.id))
+        return self._rank_users(everyone)
 
     async def run_daily_cron(self, db: AsyncSession, *, user_id: int) -> dict:
         """Roll the user's day over: reset dailies/habits and damage HP for misses.

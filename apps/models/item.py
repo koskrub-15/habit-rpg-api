@@ -1,6 +1,6 @@
 import enum
 
-from sqlalchemy import Boolean, Column, Enum, Integer
+from sqlalchemy import Column, Enum, Integer
 from sqlalchemy.orm import relationship
 
 from apps.db.base import Base
@@ -46,7 +46,6 @@ class Item(Base):
     heal_amount = Column(Integer, default=0)
     required_level = Column(Integer, default=0)
     rarity = Column(Enum(Rarity), default=Rarity.COMMON)
-    available_in_shop = Column(Boolean, default=False)
     theme = Column(Enum(ItemTheme), default=ItemTheme.COMMON)
     item_type = Column(Enum(ItemType), nullable=False)
 

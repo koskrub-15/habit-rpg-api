@@ -84,6 +84,23 @@ class CompleteActivityResponse(BaseModel):
     model_config = ConfigDict(from_attributes=True)
 
 
+class SubTaskCompleteResponse(BaseModel):
+    sub_task_id: int
+    task_id: int
+    task_completed: bool
+    task_reward: Optional[CompleteActivityResponse] = None
+    model_config = ConfigDict(from_attributes=True)
+
+
+class LeaderboardEntry(BaseModel):
+    rank: int
+    user_id: int
+    name: str
+    level: int
+    experience: int
+    model_config = ConfigDict(from_attributes=True)
+
+
 class DailyCronResponse(BaseModel):
     ran: bool
     missed_dailies: int

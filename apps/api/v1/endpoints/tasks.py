@@ -17,7 +17,7 @@ from apps.schemas.task import (
     TaskResponseShort,
     TaskUpdate,
 )
-from apps.schemas.user import CompleteActivityResponse
+from apps.schemas.user import CompleteActivityResponse, SubTaskCompleteResponse
 
 task_factory = RouterFactory(
     crud=task_crud,
@@ -78,3 +78,29 @@ async def complete_task(
         activity_type="task",
         activity_id=task_id,
     )
+
+
+@sub_task_router.post(
+    "/{sub_task_id}/complete",
+    response_model=SubTaskCompleteResponse,
+    summary="Complete a sub-task",
+)
+async def complete_sub_task(
+    sub_task_id: int,
+    db: AsyncSession = Depends(get_db),
+    current_user: User = Depends(get_current_user),
+):
+    """
+    Mark a sub-task as completed. When every sub-task of the parent task is done,
+    the parent task is auto-completed and its owner is rewarded.
+    """
+    sub_task = await sub_task_crud.get(db, sub_task_id, raise_not_found=True)
+    parent = await task_crud.get(db, sub_task.task_id, raise_not_found=True)  # type: ignore
+
+    if parent.user_id != current_user.id and not current_user.is_superuser:  # type: ignore[union-attr]
+        raise HTTPException(
+            status_code=status.HTTP_403_FORBIDDEN,
+            detail="Not enough permissions to complete another user's sub-task",
+        )
+
+    return await user_crud.complete_sub_task(db, sub_task_id=sub_task_id)

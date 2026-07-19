@@ -8,8 +8,18 @@ from apps.CRUD.from_models.user import user_crud
 from apps.db.session import get_db
 from apps.models.user import User
 from apps.schemas.friend import FriendRequestResponse
+from apps.schemas.user import LeaderboardEntry
 
 router = APIRouter(prefix="/friends", tags=["Friends"])
+
+
+@router.get("/leaderboard", response_model=List[LeaderboardEntry])
+async def friends_leaderboard(
+    db: AsyncSession = Depends(get_db),
+    current_user: User = Depends(get_current_user),
+):
+    """Rank the current user and their accepted friends by experience."""
+    return await user_crud.get_friends_leaderboard(db, current_user.id)
 
 
 @router.get("/requests", response_model=List[FriendRequestResponse])
