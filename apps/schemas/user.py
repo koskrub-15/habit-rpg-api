@@ -93,6 +93,15 @@ class DailyCronResponse(BaseModel):
     model_config = ConfigDict(from_attributes=True)
 
 
+class UserStatsResponse(BaseModel):
+    level: int
+    health_points: int
+    attack: int
+    defense: int
+    pet_power: int
+    model_config = ConfigDict(from_attributes=True)
+
+
 class EquipItemRequest(BaseModel):
     item_id: int
     slot: SlotType

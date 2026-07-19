@@ -21,6 +21,7 @@ from apps.schemas.user import (
     UserCreate,
     UserResponse,
     UserResponseShort,
+    UserStatsResponse,
     UserUpdate,
 )
 
@@ -301,6 +302,29 @@ async def grant_achievement(
     return await user_crud.grant_achievement(
         db, user_id=user_id, achievement_id=achievement_id
     )
+
+
+@router.get(
+    "/{user_id}/stats",
+    response_model=UserStatsResponse,
+    summary="Get the character's derived combat stats",
+)
+async def get_user_stats(
+    user_id: int,
+    db: AsyncSession = Depends(get_db),
+    current_user: User = Depends(get_current_user),
+):
+    """
+    Get the character's combat stats (attack, defense, pet power) summed from all
+    currently equipped items, alongside level and health.
+    """
+    if user_id != current_user.id and not current_user.is_superuser:
+        raise HTTPException(
+            status_code=status.HTTP_403_FORBIDDEN,
+            detail="Not enough permissions to view another user's stats",
+        )
+
+    return await user_crud.get_user_stats(db, user_id=user_id)
 
 
 @router.get(

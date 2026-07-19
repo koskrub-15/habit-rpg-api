@@ -12,6 +12,11 @@ from apps.models.achievement import Achievement, Reward
 from apps.models.activity_log import ActivityLog, ActivityType
 from apps.models.habit import Habit, HabitStatus, HabitType
 from apps.models.item import Item, ItemType
+from apps.models.notification import (
+    Notification,
+    NotificationType,
+    UserNotificationPreference,
+)
 from apps.models.store_rotation import ShopItem
 from apps.models.task import Size, Task, TaskStatus, TaskType
 from apps.models.user import (
@@ -150,6 +155,13 @@ class CRUDUser(BaseCRUD[User, UserCreate, UserUpdate]):
             user_id=user_id, friend_id=friend_id, status=FriendshipStatus.PENDING
         )  # type: ignore
         db.add(friendship)
+        await self._notify(
+            db,
+            friend_id,
+            NotificationType.FRIEND_REQUEST,
+            "Friend request",
+            "You have a new friend request",
+        )
         await db.commit()
         await db.refresh(friendship)
         return friendship
@@ -293,7 +305,14 @@ class CRUDUser(BaseCRUD[User, UserCreate, UserUpdate]):
                 description=f"Unlocked achievement: {achievement.name}",  # type: ignore
             )
         )
-        self._handle_level_up(db, user, level_before)
+        await self._notify(
+            db,
+            user.id,
+            NotificationType.SYSTEM,
+            "Achievement unlocked",
+            f"Achievement unlocked: {achievement.name}",
+        )
+        await self._handle_level_up(db, user, level_before)
 
         await db.commit()
         await db.refresh(user)
@@ -347,7 +366,14 @@ class CRUDUser(BaseCRUD[User, UserCreate, UserUpdate]):
                         description=f"Unlocked achievement: {ach.name}",  # type: ignore
                     )
                 )
-                self._handle_level_up(db, user, level_before)
+                await self._notify(
+                    db,
+                    user.id,
+                    NotificationType.SYSTEM,
+                    "Achievement unlocked",
+                    f"Achievement unlocked: {ach.name}",
+                )
+                await self._handle_level_up(db, user, level_before)
                 awarded.append(ach)
 
         if awarded:
@@ -412,8 +438,41 @@ class CRUDUser(BaseCRUD[User, UserCreate, UserUpdate]):
             level += 1
         return level
 
-    def _handle_level_up(self, db: AsyncSession, user: User, level_before: int) -> None:
-        """Heal to full and log a LEVEL_UP entry when a level threshold is crossed."""
+    async def _notify(
+        self,
+        db: AsyncSession,
+        user_id: int,
+        notification_type: NotificationType,
+        title: str,
+        message: str,
+    ) -> None:
+        """Create a notification unless the user has explicitly opted out of its type.
+
+        Notifications default to on: a preference row is only consulted to suppress
+        a type the user has switched off (``is_enabled=False``). The caller commits.
+        """
+        result = await db.execute(
+            select(UserNotificationPreference).where(
+                UserNotificationPreference.user_id == user_id,
+                UserNotificationPreference.notification_type == notification_type,
+            )
+        )
+        preference = result.scalar_one_or_none()
+        if preference is not None and not preference.is_enabled:
+            return
+        db.add(
+            Notification(
+                user_id=user_id,  # type: ignore
+                notification_type=notification_type,  # type: ignore
+                name=title,  # type: ignore
+                message=message,  # type: ignore
+            )
+        )
+
+    async def _handle_level_up(
+        self, db: AsyncSession, user: User, level_before: int
+    ) -> None:
+        """Heal to full, log LEVEL_UP and notify when a level threshold is crossed."""
         level_after = self._calculate_level(user.experience)
         if level_after > level_before:
             user.health_points = 100
@@ -423,6 +482,13 @@ class CRUDUser(BaseCRUD[User, UserCreate, UserUpdate]):
                     activity_type=ActivityType.LEVEL_UP,  # type: ignore
                     description=f"Reached level {level_after}",  # type: ignore
                 )
+            )
+            await self._notify(
+                db,
+                user.id,
+                NotificationType.SYSTEM,
+                "Level up",
+                f"You reached level {level_after}!",
             )
 
     async def _apply_death_penalty(self, db: AsyncSession, user: User) -> bool:
@@ -642,7 +708,7 @@ class CRUDUser(BaseCRUD[User, UserCreate, UserUpdate]):
                 detail="activity_type must be 'task' or 'habit'",
             )
 
-        self._handle_level_up(db, user, level_before)
+        await self._handle_level_up(db, user, level_before)
         died = await self._apply_death_penalty(db, user)
 
         # Reflect the final user state after level-up heal / death penalty.
@@ -952,6 +1018,87 @@ class CRUDUser(BaseCRUD[User, UserCreate, UserUpdate]):
             .options(selectinload(EquippedItem.item))
         )
         return list(result.scalars().all())
+
+    async def use_item(self, db: AsyncSession, user_id: int, item_id: int) -> dict:
+        """Consume one CONSUMABLE item from the user's inventory and apply its effect.
+
+        Consumables restore HP by their ``heal_amount`` (clamped to 100). One unit is
+        removed from the inventory. Non-consumables and items not owned are rejected.
+        """
+        user = await self.get(db, user_id, raise_not_found=True)
+        if not user:
+            raise HTTPException(
+                status_code=status.HTTP_404_NOT_FOUND, detail="User not found"
+            )
+
+        result = await db.execute(select(Item).where(Item.id == item_id))
+        item = result.scalar_one_or_none()
+        if not item:
+            raise HTTPException(
+                status_code=status.HTTP_404_NOT_FOUND, detail="Item not found"
+            )
+        if item.item_type != ItemType.CONSUMABLE:
+            raise HTTPException(
+                status_code=status.HTTP_400_BAD_REQUEST,
+                detail="Item is not consumable",
+            )
+
+        result = await db.execute(
+            select(InventoryItem).where(
+                InventoryItem.user_id == user_id, InventoryItem.item_id == item_id
+            )
+        )
+        inventory_item = result.scalars().first()
+        if not inventory_item:
+            raise HTTPException(
+                status_code=status.HTTP_400_BAD_REQUEST,
+                detail="Item not in inventory",
+            )
+
+        before = user.health_points
+        user.health_points = min(100, before + (item.heal_amount or 0))
+        health_restored = user.health_points - before
+
+        if inventory_item.quantity > 1:
+            inventory_item.quantity -= 1
+        else:
+            await db.delete(inventory_item)
+
+        db.add(
+            ActivityLog(
+                user_id=user_id,  # type: ignore
+                activity_type=ActivityType.ITEM_USED,  # type: ignore
+                item_id=item_id,  # type: ignore
+                description=f"Used item: {item.name} (+{health_restored} HP)",  # type: ignore
+            )
+        )
+        await db.commit()
+
+        return {
+            "item_id": item_id,
+            "health_restored": health_restored,
+            "current_health": user.health_points,
+        }
+
+    async def get_user_stats(self, db: AsyncSession, user_id: int) -> dict:
+        """Derive the character's combat stats from currently equipped items.
+
+        Sums the attack/defense/pet_power of every equipped item so the item
+        stats actually influence the character sheet.
+        """
+        user = await self.get(db, user_id, raise_not_found=True)
+        if not user:
+            raise HTTPException(
+                status_code=status.HTTP_404_NOT_FOUND, detail="User not found"
+            )
+        equipped = await self.get_equipped_items(db, user_id)
+        return {
+            "level": self._calculate_level(user.experience),
+            "health_points": user.health_points,
+            "attack": sum(e.item.attack for e in equipped if e.item),
+            "defense": sum(e.item.defense for e in equipped if e.item),
+            "pet_power": sum(e.item.pet_power for e in equipped if e.item),
+        }
 
 
 user_crud = CRUDUser()

@@ -1169,3 +1169,53 @@ async def test_cron_missed_daily_can_trigger_death(
     await db_session.refresh(test_user)
     assert test_user.gold == 0
     assert test_user.experience == 9  # dropped from level 5 to level 4
+
+
+# ---------------------------------------------------------------------------
+# Tests: derived character stats from equipped items
+# ---------------------------------------------------------------------------
+
+
+@pytest.mark.asyncio
+async def test_user_stats_sum_equipped_items(
+    auth_client: AsyncClient,
+    db_session: AsyncSession,
+    test_user: User,
+):
+    """GET /stats sums attack/defense/pet_power across all equipped items."""
+    sword = Item(name="Sword", item_type=ItemType.WEAPON, attack=10, defense=1)
+    armor = Item(name="Plate", item_type=ItemType.ARMOR, attack=0, defense=5)
+    pet = Item(name="Dragon", item_type=ItemType.PET, pet_power=7)
+    db_session.add_all([sword, armor, pet])
+    await db_session.commit()
+
+    db_session.add_all(
+        [
+            EquippedItem(user_id=test_user.id, item_id=sword.id, slot=SlotType.WEAPON),
+            EquippedItem(user_id=test_user.id, item_id=armor.id, slot=SlotType.ARMOR),
+            EquippedItem(user_id=test_user.id, item_id=pet.id, slot=SlotType.PET),
+        ]
+    )
+    await db_session.commit()
+
+    response = await auth_client.get(f"/api/v1/users/{test_user.id}/stats")
+    assert response.status_code == 200
+    data = response.json()
+    assert data["attack"] == 10
+    assert data["defense"] == 6
+    assert data["pet_power"] == 7
+
+
+@pytest.mark.asyncio
+async def test_user_stats_zero_when_nothing_equipped(
+    auth_client: AsyncClient,
+    test_user: User,
+):
+    """With no equipment the derived stats are all zero."""
+    response = await auth_client.get(f"/api/v1/users/{test_user.id}/stats")
+    assert response.status_code == 200
+    data = response.json()
+    assert data["attack"] == 0
+    assert data["defense"] == 0
+    assert data["pet_power"] == 0
+    assert data["level"] >= 1
