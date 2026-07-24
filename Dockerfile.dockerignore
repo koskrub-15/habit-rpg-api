@@ -9,3 +9,4 @@
 !apps/
 !alembic/
 !alembic.ini
+!docker-entrypoint.sh

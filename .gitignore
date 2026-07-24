@@ -8,6 +8,8 @@
 !compose.override.dev.yaml
 !Dockerfile
 !Dockerfile.dockerignore
+!docker-entrypoint.sh
+!fly.toml
 !justfile
 !just/
 !just/**
