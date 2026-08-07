@@ -69,7 +69,7 @@ app = FastAPI(
     openapi_tags=TAGS_METADATA,
     contact={
         "name": "Konstantin Bevz",
-        "url": "https://github.com/koskrub-15/habit_api__bevz_konstantin__main",
+        "url": "https://github.com/koskrub-15/habit-rpg-api",
     },
     license_info={"name": "MIT", "url": "https://opensource.org/licenses/MIT"},
 )
