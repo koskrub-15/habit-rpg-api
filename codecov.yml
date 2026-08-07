@@ -1,0 +1,19 @@
+# Codecov project configuration.
+# Statuses are informational: Codecov reports coverage on PRs but never fails
+# the check, so it cannot block a merge (branch protection owns the gating).
+coverage:
+  status:
+    project:
+      default:
+        target: auto
+        threshold: 1%
+        informational: true
+    patch:
+      default:
+        target: auto
+        threshold: 1%
+        informational: true
+
+comment:
+  layout: "reach, diff, flags, files"
+  require_changes: false
