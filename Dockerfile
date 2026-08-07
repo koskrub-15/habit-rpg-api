@@ -68,12 +68,14 @@ COPY --from=builder /wd/.venv ${VENV_DIR}
 COPY --chown=${USER} apps/ apps/
 COPY --chown=${USER} alembic.ini alembic.ini
 COPY --chown=${USER} alembic/ alembic/
+COPY --chown=${USER} docker-entrypoint.sh docker-entrypoint.sh
+RUN chmod +x docker-entrypoint.sh
 
 USER ${USER}
 
 ENV PATH="${VENV_DIR}/bin:$PATH"
 
-ENTRYPOINT ["uvicorn", "apps.main:app"]
+ENTRYPOINT ["/wd/docker-entrypoint.sh"]
 
-#CMD ["--help"]
+CMD ["--host", "0.0.0.0", "--port", "8000"]
 # [stage__final]-[END]==================================================

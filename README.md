@@ -1,7 +1,7 @@
 # ⚔️ Habit RPG API
 
-[![CI](https://github.com/koskrub-15/habit_api__bevz_konstantin__main/actions/workflows/ci.yml/badge.svg)](https://github.com/koskrub-15/habit_api__bevz_konstantin__main/actions/workflows/ci.yml)
-[![codecov](https://codecov.io/gh/koskrub-15/habit_api__bevz_konstantin__main/branch/main/graph/badge.svg)](https://codecov.io/gh/koskrub-15/habit_api__bevz_konstantin__main)
+[![CI](https://github.com/koskrub-15/habit-rpg-api/actions/workflows/ci.yml/badge.svg)](https://github.com/koskrub-15/habit-rpg-api/actions/workflows/ci.yml)
+[![codecov](https://codecov.io/gh/koskrub-15/habit-rpg-api/branch/main/graph/badge.svg)](https://codecov.io/gh/koskrub-15/habit-rpg-api)
 
 A gamified habit tracking and task management API built with FastAPI. Transform your daily routine into an RPG adventure!
 
