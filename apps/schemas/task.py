@@ -5,7 +5,7 @@ from typing import List, Optional
 
 from pydantic import BaseModel, ConfigDict
 
-from apps.models.task import Size, TaskStatus, TaskType
+from apps.core.enums import Size, TaskStatus, TaskType
 from apps.schemas.base import BaseSchemaResponse, SimpleBaseSchemaCreate
 
 

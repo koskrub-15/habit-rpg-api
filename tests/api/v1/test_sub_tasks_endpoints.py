@@ -2,7 +2,8 @@ import pytest_asyncio
 import pytest
 from httpx import AsyncClient
 from sqlalchemy.ext.asyncio import AsyncSession
-from apps.models.task import SubTask, Task, TaskStatus, Size
+from apps.core.enums import TaskStatus, Size
+from apps.models.task import SubTask, Task
 from apps.models.user import User
 from apps.schemas.task import SubTaskCreate, SubTaskUpdate, TaskCreate
 from apps.schemas.user import UserCreate

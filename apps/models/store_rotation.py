@@ -9,8 +9,9 @@ from sqlalchemy import (
 )
 from sqlalchemy.orm import relationship
 
+from apps.core.enums import ItemTheme, Rarity
 from apps.db.base import SimpleBase
-from apps.models.item import Item, ItemTheme, Rarity
+from apps.models.item import Item
 
 
 class ShopItem(SimpleBase):

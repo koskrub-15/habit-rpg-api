@@ -6,10 +6,19 @@ from httpx import AsyncClient
 from sqlalchemy import select
 from sqlalchemy.ext.asyncio import AsyncSession
 
-from apps.models.habit import Habit, HabitStatus, HabitType
-from apps.models.item import Item, ItemType
-from apps.models.task import Size, Task, TaskStatus, TaskType
-from apps.models.user import EquippedItem, InventoryItem, SlotType, User
+from apps.core.enums import (
+    HabitStatus,
+    HabitType,
+    ItemType,
+    Size,
+    SlotType,
+    TaskStatus,
+    TaskType,
+)
+from apps.models.habit import Habit
+from apps.models.item import Item
+from apps.models.task import Task
+from apps.models.user import EquippedItem, InventoryItem, User
 
 # ---------------------------------------------------------------------------
 # Fixtures

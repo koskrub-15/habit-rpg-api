@@ -2,9 +2,16 @@ import pytest
 from httpx import AsyncClient
 from sqlalchemy.ext.asyncio import AsyncSession
 
-from apps.models.notification import Notification, NotificationType
-from apps.models.task import Size, SubTask, Task, TaskStatus, TaskType
-from apps.models.user import Friendship, FriendshipStatus, User
+from apps.core.enums import (
+    FriendshipStatus,
+    NotificationType,
+    Size,
+    TaskStatus,
+    TaskType,
+)
+from apps.models.notification import Notification
+from apps.models.task import SubTask, Task
+from apps.models.user import Friendship, User
 
 
 # --- Notifications: read state -------------------------------------------------

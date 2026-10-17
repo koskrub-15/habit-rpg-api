@@ -5,7 +5,7 @@ from typing import Optional
 
 from pydantic import BaseModel, ConfigDict
 
-from apps.models.activity_log import ActivityType
+from apps.core.enums import ActivityType
 
 
 class ActivityLogCreate(BaseModel):

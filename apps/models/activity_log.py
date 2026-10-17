@@ -1,22 +1,8 @@
-import enum
-
 from sqlalchemy import Column, Enum, ForeignKey, Integer, String
 from sqlalchemy.orm import relationship
 
+from apps.core.enums import ActivityType
 from apps.db.base import MinimalBase
-
-
-class ActivityType(enum.Enum):
-    TASK_COMPLETED = "TASK_COMPLETED"
-    HABIT_COMPLETED = "HABIT_COMPLETED"
-    ITEM_PURCHASED = "ITEM_PURCHASED"
-    ITEM_SOLD = "ITEM_SOLD"
-    ITEM_USED = "ITEM_USED"
-    ACHIEVEMENT_UNLOCKED = "ACHIEVEMENT_UNLOCKED"
-    LEVEL_UP = "LEVEL_UP"
-    DEATH = "DEATH"
-    DAILY_MISSED = "DAILY_MISSED"
-    BOSS_DEFEATED = "BOSS_DEFEATED"
 
 
 class ActivityLog(MinimalBase):

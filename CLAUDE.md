@@ -97,6 +97,7 @@ apps/
 │   └── session.py           ← get_db dependency
 └── core/
     ├── config.py            ← settings via pydantic-settings
+    ├── enums.py             ← domain enums shared by models and schemas
     └── security.py          ← JWT + password hashing
 ```
 

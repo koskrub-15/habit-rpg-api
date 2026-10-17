@@ -3,7 +3,8 @@ from httpx import AsyncClient
 from sqlalchemy import select
 from sqlalchemy.ext.asyncio import AsyncSession
 
-from apps.models.item import Item, ItemType
+from apps.core.enums import ItemType
+from apps.models.item import Item
 from apps.models.user import InventoryItem, User
 
 

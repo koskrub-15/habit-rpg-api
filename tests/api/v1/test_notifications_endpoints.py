@@ -2,7 +2,8 @@ import pytest_asyncio
 import pytest
 from httpx import AsyncClient
 from sqlalchemy.ext.asyncio import AsyncSession
-from apps.models.notification import Notification, NotificationType
+from apps.core.enums import NotificationType
+from apps.models.notification import Notification
 from apps.models.user import User
 from apps.schemas.notification import NotificationCreate, NotificationUpdate
 from apps.schemas.user import UserCreate

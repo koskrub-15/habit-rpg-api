@@ -1,25 +1,11 @@
-import enum
 from datetime import datetime, timezone
 
 from sqlalchemy import Boolean, Column, DateTime, Enum, ForeignKey, Integer, String
 from sqlalchemy.orm import relationship
 
+from apps.core.enums import FriendshipStatus, SlotType
 from apps.db.base import MinimalBase, SimpleBase
 from apps.models.achievement import user_achievement_table
-
-
-class SlotType(enum.Enum):
-    HELMET = "HELMET"
-    ARMOR = "ARMOR"
-    ACCESSORY = "ACCESSORY"
-    WEAPON = "WEAPON"
-    PET = "PET"
-
-
-class FriendshipStatus(enum.Enum):
-    PENDING = "PENDING"
-    ACCEPTED = "ACCEPTED"
-    DECLINED = "DECLINED"
 
 
 class User(SimpleBase):

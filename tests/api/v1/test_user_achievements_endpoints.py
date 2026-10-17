@@ -1,10 +1,11 @@
 import pytest
 from httpx import AsyncClient
 from sqlalchemy.ext.asyncio import AsyncSession
+from apps.core.enums import HabitStatus, HabitType, TaskStatus
 from apps.models.user import User
 from apps.models.achievement import Achievement
-from apps.models.task import Task, TaskStatus
-from apps.models.habit import Habit, HabitStatus, HabitType
+from apps.models.task import Task
+from apps.models.habit import Habit
 
 
 @pytest.mark.asyncio

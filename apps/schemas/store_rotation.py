@@ -5,7 +5,7 @@ from typing import List, Optional
 
 from pydantic import BaseModel, ConfigDict, model_validator
 
-from apps.models.item import ItemTheme, Rarity
+from apps.core.enums import ItemTheme, Rarity
 from apps.schemas.base import BaseSchemaResponse, SimpleBaseSchemaCreate
 from apps.schemas.item import ItemResponseShort
 

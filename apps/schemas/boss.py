@@ -4,7 +4,7 @@ from typing import Optional
 
 from pydantic import BaseModel, ConfigDict, Field
 
-from apps.models.boss import BossFightStatus
+from apps.core.enums import BossFightStatus
 from apps.schemas.base import BaseSchemaResponse, SimpleBaseSchemaCreate
 
 

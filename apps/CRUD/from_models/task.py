@@ -2,8 +2,9 @@ from typing import Any, Dict, Union
 
 from sqlalchemy.ext.asyncio import AsyncSession
 
+from apps.core.enums import ActivityType, TaskStatus
 from apps.CRUD.base import BaseCRUD
-from apps.models.task import SubTask, Task, TaskStatus
+from apps.models.task import SubTask, Task
 from apps.schemas.task import SubTaskCreate, SubTaskUpdate, TaskCreate, TaskUpdate
 
 
@@ -31,7 +32,7 @@ class CRUDTask(BaseCRUD[Task, TaskCreate, TaskUpdate]):
             update_data.get("status") == TaskStatus.COMPLETED
             or update_data.get("status") == "COMPLETED"
         ):
-            from apps.models.activity_log import ActivityLog, ActivityType
+            from apps.models.activity_log import ActivityLog
 
             db.add(
                 ActivityLog(

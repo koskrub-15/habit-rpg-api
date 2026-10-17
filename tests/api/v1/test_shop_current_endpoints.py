@@ -4,7 +4,8 @@ import pytest
 from httpx import AsyncClient
 from sqlalchemy.ext.asyncio import AsyncSession
 
-from apps.models.item import Item, ItemTheme, ItemType
+from apps.core.enums import ItemTheme, ItemType
+from apps.models.item import Item
 from apps.models.store_rotation import ShopItem, ShopRotation, ShopRotationItem
 from apps.models.user import User
 

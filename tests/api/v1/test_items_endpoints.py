@@ -2,7 +2,8 @@ import pytest_asyncio
 import pytest
 from httpx import AsyncClient
 from sqlalchemy.ext.asyncio import AsyncSession
-from apps.models.item import Item, ItemType, Rarity
+from apps.core.enums import ItemType, Rarity
+from apps.models.item import Item
 from apps.schemas.item import ItemCreate, ItemUpdate
 
 

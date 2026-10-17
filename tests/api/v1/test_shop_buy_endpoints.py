@@ -2,8 +2,9 @@ import pytest
 from datetime import datetime, timedelta, timezone
 from httpx import AsyncClient
 from sqlalchemy.ext.asyncio import AsyncSession
+from apps.core.enums import ItemType
 from apps.models.user import User, InventoryItem
-from apps.models.item import Item, ItemType
+from apps.models.item import Item
 from apps.models.store_rotation import ShopItem
 
 
