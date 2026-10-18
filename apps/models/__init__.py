@@ -1,4 +1,5 @@
 from .achievement import Achievement as Achievement, Reward as Reward
+from .activity_log import ActivityLog as ActivityLog
 from .boss import Boss as Boss, BossFight as BossFight
 from .revoked_token import RevokedToken as RevokedToken
 from .habit import Habit as Habit
