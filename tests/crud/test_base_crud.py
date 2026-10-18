@@ -16,10 +16,10 @@ from fastapi import HTTPException
 from sqlalchemy.exc import IntegrityError, SQLAlchemyError
 from sqlalchemy.ext.asyncio import AsyncSession
 
+from apps.core.enums import ItemType
 from apps.CRUD.from_models.item import item_crud
 from apps.CRUD.from_models.task import sub_task_crud, task_crud
 from apps.CRUD.from_models.user import user_crud
-from apps.models.item import ItemType
 from apps.schemas.item import ItemCreate
 from apps.schemas.user import UserCreate
 

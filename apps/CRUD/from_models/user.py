@@ -7,27 +7,29 @@ from sqlalchemy import func, or_, select, update
 from sqlalchemy.ext.asyncio import AsyncSession
 from sqlalchemy.orm import selectinload
 
+from apps.core.enums import (
+    ActivityType,
+    BossFightStatus,
+    FriendshipStatus,
+    HabitStatus,
+    HabitType,
+    ItemType,
+    NotificationType,
+    Size,
+    SlotType,
+    TaskStatus,
+    TaskType,
+)
 from apps.CRUD.base import BaseCRUD
 from apps.models.achievement import Achievement, Reward
-from apps.models.activity_log import ActivityLog, ActivityType
-from apps.models.boss import Boss, BossFight, BossFightStatus
-from apps.models.habit import Habit, HabitStatus, HabitType
-from apps.models.item import Item, ItemType
-from apps.models.notification import (
-    Notification,
-    NotificationType,
-    UserNotificationPreference,
-)
+from apps.models.activity_log import ActivityLog
+from apps.models.boss import Boss, BossFight
+from apps.models.habit import Habit
+from apps.models.item import Item
+from apps.models.notification import Notification, UserNotificationPreference
 from apps.models.store_rotation import ShopItem, ShopRotation, ShopRotationItem
-from apps.models.task import Size, SubTask, Task, TaskStatus, TaskType
-from apps.models.user import (
-    EquippedItem,
-    Friendship,
-    FriendshipStatus,
-    InventoryItem,
-    SlotType,
-    User,
-)
+from apps.models.task import SubTask, Task
+from apps.models.user import EquippedItem, Friendship, InventoryItem, User
 from apps.schemas.user import CompleteActivityResponse, UserCreate, UserUpdate
 
 
@@ -43,8 +45,8 @@ class CRUDUser(BaseCRUD[User, UserCreate, UserUpdate]):
     async def reset_daily_tasks(self, db: AsyncSession, *, user_id: int):
         """Reset all daily tasks and habits for a user to 'TODO'."""
         from sqlalchemy import update
-        from apps.models.task import Task, TaskStatus, TaskType
-        from apps.models.habit import Habit, HabitStatus
+        from apps.models.task import Task
+        from apps.models.habit import Habit
 
         # Reset daily tasks
         await db.execute(

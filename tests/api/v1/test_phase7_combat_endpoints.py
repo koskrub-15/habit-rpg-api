@@ -3,10 +3,11 @@ from httpx import AsyncClient
 from sqlalchemy import select
 from sqlalchemy.ext.asyncio import AsyncSession
 
+from apps.core.enums import BossFightStatus, ItemType, SlotType
 from apps.models.achievement import Achievement
-from apps.models.boss import Boss, BossFight, BossFightStatus
-from apps.models.item import Item, ItemType
-from apps.models.user import EquippedItem, SlotType, User
+from apps.models.boss import Boss, BossFight
+from apps.models.item import Item
+from apps.models.user import EquippedItem, User
 
 
 async def _make_boss(

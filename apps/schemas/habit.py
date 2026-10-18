@@ -5,8 +5,7 @@ from typing import Optional
 
 from pydantic import BaseModel, ConfigDict
 
-from apps.models.habit import HabitStatus, HabitType
-from apps.models.task import Size
+from apps.core.enums import HabitStatus, HabitType, Size
 from apps.schemas.base import BaseSchemaResponse, SimpleBaseSchemaCreate
 
 

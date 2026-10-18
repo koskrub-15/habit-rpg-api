@@ -2,7 +2,8 @@ import pytest_asyncio
 import pytest
 from httpx import AsyncClient
 from sqlalchemy.ext.asyncio import AsyncSession
-from apps.models.store_rotation import ShopRotation, ItemTheme
+from apps.core.enums import ItemTheme
+from apps.models.store_rotation import ShopRotation
 from apps.schemas.store_rotation import ShopRotationCreate, ShopRotationUpdate
 from datetime import datetime, timedelta, timezone
 

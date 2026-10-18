@@ -5,7 +5,7 @@ from typing import List, Optional
 
 from pydantic import BaseModel, ConfigDict, field_validator
 
-from apps.models.user import SlotType
+from apps.core.enums import SlotType
 from apps.schemas.achievement import AchievementResponseShort
 from apps.schemas.base import BaseSchemaResponse, SimpleBaseSchemaCreate
 from apps.schemas.habit import HabitResponseShort

@@ -1,4 +1,3 @@
-import enum
 from datetime import datetime, timezone
 
 from sqlalchemy import (
@@ -13,15 +12,8 @@ from sqlalchemy import (
 )
 from sqlalchemy.orm import relationship
 
+from apps.core.enums import NotificationType
 from apps.db.base import Base
-
-
-class NotificationType(enum.Enum):
-    TASK_REMINDER = "TASK_REMINDER"
-    STREAK_REMINDER = "STREAK_REMINDER"
-    NEWS = "NEWS"
-    FRIEND_REQUEST = "FRIEND_REQUEST"
-    SYSTEM = "SYSTEM"
 
 
 class Notification(Base):

@@ -2,10 +2,10 @@ import pytest_asyncio
 import pytest
 from httpx import AsyncClient
 from sqlalchemy.ext.asyncio import AsyncSession
-from apps.models.habit import Habit, HabitType, HabitStatus
+from apps.core.enums import HabitStatus, HabitType, Size
+from apps.models.habit import Habit
 from apps.models.user import User
 from apps.schemas.habit import HabitCreate, HabitUpdate
-from apps.models.task import Size
 
 
 @pytest_asyncio.fixture

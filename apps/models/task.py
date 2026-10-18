@@ -1,27 +1,8 @@
-import enum
-
 from sqlalchemy import Column, DateTime, Enum, ForeignKey, Integer
 from sqlalchemy.orm import relationship
 
+from apps.core.enums import Size, TaskStatus, TaskType
 from apps.db.base import Base, SimpleBase
-
-
-class TaskStatus(enum.Enum):
-    TODO = "TODO"
-    IN_PROGRESS = "IN_PROGRESS"
-    COMPLETED = "COMPLETED"
-
-
-class TaskType(enum.Enum):
-    DAILY = "DAILY"
-    REGULAR = "REGULAR"
-
-
-class Size(enum.Enum):
-    SMALL = "SMALL"
-    MEDIUM = "MEDIUM"
-    BIG = "BIG"
-    LARGE = "LARGE"
 
 
 class Task(Base):

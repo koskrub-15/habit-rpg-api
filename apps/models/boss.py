@@ -1,15 +1,8 @@
-import enum
-
 from sqlalchemy import Column, Enum, ForeignKey, Integer
 from sqlalchemy.orm import relationship
 
+from apps.core.enums import BossFightStatus
 from apps.db.base import MinimalBase, SimpleBase
-
-
-class BossFightStatus(enum.Enum):
-    ACTIVE = "ACTIVE"
-    WON = "WON"
-    LOST = "LOST"
 
 
 class Boss(SimpleBase):

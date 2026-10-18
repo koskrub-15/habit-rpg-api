@@ -4,7 +4,7 @@ from typing import Optional
 
 from pydantic import BaseModel, ConfigDict
 
-from apps.models.notification import NotificationType
+from apps.core.enums import NotificationType
 from apps.schemas.base import BaseSchemaResponse, SimpleBaseSchemaCreate
 
 

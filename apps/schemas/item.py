@@ -4,7 +4,7 @@ from typing import Optional
 
 from pydantic import BaseModel, ConfigDict, Field
 
-from apps.models.item import ItemTheme, ItemType, Rarity
+from apps.core.enums import ItemTheme, ItemType, Rarity
 from apps.schemas.base import BaseSchemaResponse, SimpleBaseSchemaCreate
 
 

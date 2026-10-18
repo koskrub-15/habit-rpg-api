@@ -3,10 +3,11 @@ from httpx import AsyncClient
 from sqlalchemy import select
 from sqlalchemy.ext.asyncio import AsyncSession
 
+from apps.core.enums import FriendshipStatus, ItemType
 from apps.models.achievement import Achievement
-from apps.models.item import Item, ItemType
+from apps.models.item import Item
 from apps.models.store_rotation import ShopItem
-from apps.models.user import Friendship, FriendshipStatus, InventoryItem, User
+from apps.models.user import Friendship, InventoryItem, User
 
 
 async def _give_item(db, user_id, name="Trinket", quantity=1):

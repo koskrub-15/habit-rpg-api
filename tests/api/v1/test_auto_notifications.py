@@ -3,13 +3,10 @@ from httpx import AsyncClient
 from sqlalchemy import select
 from sqlalchemy.ext.asyncio import AsyncSession
 
+from apps.core.enums import NotificationType, Size, TaskStatus, TaskType
 from apps.models.achievement import Achievement, Reward
-from apps.models.notification import (
-    Notification,
-    NotificationType,
-    UserNotificationPreference,
-)
-from apps.models.task import Size, Task, TaskStatus, TaskType
+from apps.models.notification import Notification, UserNotificationPreference
+from apps.models.task import Task
 from apps.models.user import User
 
 

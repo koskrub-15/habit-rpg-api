@@ -5,7 +5,7 @@ from typing import Optional
 
 from pydantic import BaseModel, ConfigDict
 
-from apps.models.user import FriendshipStatus
+from apps.core.enums import FriendshipStatus
 from apps.schemas.user import UserResponseShort
 
 
