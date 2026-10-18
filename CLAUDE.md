@@ -74,7 +74,7 @@ sourcery login
 
 - **FastAPI** + **SQLAlchemy 2.0 async** + **Pydantic v2**
 - **aiosqlite** (tests) / **asyncpg** (production PostgreSQL)
-- **JWT** (python-jose) + **Argon2** (password hashing)
+- **JWT** (PyJWT) + **Argon2** (password hashing)
 - **uv** as the package manager (pip + venv rolled into one)
 
 ---

@@ -2,7 +2,7 @@ from datetime import datetime, timedelta, timezone
 from typing import Any
 import uuid
 
-from jose import JWTError, jwt
+import jwt
 from passlib.context import CryptContext
 
 from apps.core.config import settings
@@ -65,7 +65,7 @@ def decode_access_token(token: str) -> str | None:
         if payload.get("type") != "access":
             return None
         return payload.get("sub")
-    except JWTError:
+    except jwt.InvalidTokenError:
         return None
 
 
@@ -82,5 +82,5 @@ def decode_refresh_token(token: str) -> dict | None:
         if payload.get("type") != "refresh":
             return None
         return payload
-    except JWTError:
+    except jwt.InvalidTokenError:
         return None
