@@ -31,7 +31,7 @@ jobs:
       - name: Run tests
         env:
           DATABASE_URL: sqlite+aiosqlite:///./test.db
-          SECRET_KEY: test-secret-key
+          SECRET_KEY: test-secret-key-at-least-32-bytes-long
           COVERAGE_CORE: sysmon
         run: uv run pytest tests/ --cov=apps --cov-report=term-missing --cov-report=xml --cov-fail-under=90
 
@@ -64,12 +64,10 @@ jobs:
       - name: Install uv
         uses: astral-sh/setup-uv@v10.0.1
 
-      # ecdsa PYSEC-2026-1325 (Minerva timing side-channel) has no fix release —
-      # upstream declines to patch it; pulled in transitively via python-jose.
       - name: Audit dependencies
         run: >-
           uv export --frozen --no-emit-project
-          | uvx pip-audit -r /dev/stdin --ignore-vuln PYSEC-2026-1325
+          | uvx pip-audit -r /dev/stdin
 
   deploy:
     name: Deploy to Fly.io
