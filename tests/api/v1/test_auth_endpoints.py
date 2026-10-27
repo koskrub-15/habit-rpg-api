@@ -1,6 +1,10 @@
+from datetime import datetime, timedelta, timezone
+
 import pytest
 from httpx import AsyncClient
 from sqlalchemy.ext.asyncio import AsyncSession
+
+from apps.CRUD.from_models.revoked_token import revoked_token_crud
 
 
 @pytest.mark.asyncio
@@ -165,3 +169,70 @@ async def test_logout_invalidates_token(client: AsyncClient, db_session: AsyncSe
         "/api/v1/auth/refresh", json={"refresh_token": refresh_token}
     )
     assert refresh_response.status_code == 401
+
+
+async def _login_refresh_token(client: AsyncClient, email: str) -> str:
+    await client.post(
+        "/api/v1/auth/register",
+        json={"name": "Rotation User", "email": email, "password": "password123"},
+    )
+    login_response = await client.post(
+        "/api/v1/auth/login", data={"username": email, "password": "password123"}
+    )
+    return login_response.json()["refresh_token"]
+
+
+@pytest.mark.asyncio
+async def test_refresh_token_is_single_use(
+    client: AsyncClient, db_session: AsyncSession
+):
+    refresh_token = await _login_refresh_token(client, "rotation@example.com")
+
+    first = await client.post(
+        "/api/v1/auth/refresh", json={"refresh_token": refresh_token}
+    )
+    assert first.status_code == 200
+
+    reuse = await client.post(
+        "/api/v1/auth/refresh", json={"refresh_token": refresh_token}
+    )
+    assert reuse.status_code == 401
+    assert reuse.json()["detail"] == "Token has been revoked"
+
+
+@pytest.mark.asyncio
+async def test_rotated_refresh_token_keeps_working(
+    client: AsyncClient, db_session: AsyncSession
+):
+    refresh_token = await _login_refresh_token(client, "chain@example.com")
+
+    for _ in range(3):
+        response = await client.post(
+            "/api/v1/auth/refresh", json={"refresh_token": refresh_token}
+        )
+        assert response.status_code == 200
+        refresh_token = response.json()["refresh_token"]
+
+
+@pytest.mark.asyncio
+async def test_logout_is_idempotent(client: AsyncClient, db_session: AsyncSession):
+    refresh_token = await _login_refresh_token(client, "twice@example.com")
+
+    for _ in range(2):
+        response = await client.post(
+            "/api/v1/auth/logout", json={"refresh_token": refresh_token}
+        )
+        assert response.status_code == 200
+
+
+@pytest.mark.asyncio
+async def test_revoke_returns_false_when_already_revoked(db_session: AsyncSession):
+    expires_at = datetime.now(timezone.utc) + timedelta(days=1)
+
+    assert await revoked_token_crud.revoke(
+        db_session, jti="jti-1", expires_at=expires_at
+    )
+    assert not await revoked_token_crud.revoke(
+        db_session, jti="jti-1", expires_at=expires_at
+    )
+    assert await revoked_token_crud.is_revoked(db_session, jti="jti-1")
