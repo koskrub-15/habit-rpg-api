@@ -300,7 +300,7 @@ Exception: if a model has no `name` (uses `MinimalBase`), inherit from `BaseMode
 ## Authentication
 
 - `apps/api/deps.py` — `get_current_user`: reads the JWT from the `Authorization: Bearer <token>` header and returns a `User` object
-- `apps/core/security.py` — `create_access_token`, `verify_password`, `get_password_hash`
+- `apps/core/security.py` — `create_access_token`, `hash_password`, `verify_password` (Argon2 via pwdlib)
 - RouterFactory accepts `current_user_dependency=Depends(get_current_user)` and passes it into every endpoint
 
 If `current_user_dependency=None`, the endpoints are public (no authentication).
