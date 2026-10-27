@@ -14,7 +14,6 @@ from apps.core.security import (
 from apps.CRUD.from_models.revoked_token import revoked_token_crud
 from apps.CRUD.from_models.user import user_crud
 from apps.db.session import get_db
-from apps.schemas.revoked_token import RevokedTokenCreate
 from apps.schemas.user import UserCreate, UserResponseShort
 
 router = APIRouter(prefix="/auth", tags=["Auth"])
@@ -66,7 +65,10 @@ async def refresh_token(
     refresh_token: str = Body(..., embed=True),
     db: AsyncSession = Depends(get_db),
 ):
-    """Obtain a new access token using a valid refresh token."""
+    """Exchange a refresh token for a new token pair.
+
+    The presented refresh token is revoked (rotation), so each one is single-use.
+    """
     payload = decode_refresh_token(refresh_token)
     if not payload:
         raise HTTPException(
@@ -75,8 +77,10 @@ async def refresh_token(
             headers={"WWW-Authenticate": "Bearer"},
         )
 
-    jti = payload["jti"]
-    if await revoked_token_crud.is_revoked(db, jti=jti):
+    expires_at = datetime.fromtimestamp(payload["exp"], tz=timezone.utc)
+    if not await revoked_token_crud.revoke(
+        db, jti=payload["jti"], expires_at=expires_at
+    ):
         raise HTTPException(
             status_code=status.HTTP_401_UNAUTHORIZED,
             detail="Token has been revoked",
@@ -113,11 +117,7 @@ async def logout(
             detail="Invalid or expired refresh token",
         )
 
-    jti = payload["jti"]
-    if not await revoked_token_crud.is_revoked(db, jti=jti):
-        expires_at = datetime.fromtimestamp(payload["exp"], tz=timezone.utc)
-        await revoked_token_crud.create(
-            db, RevokedTokenCreate(jti=jti, expires_at=expires_at)
-        )
+    expires_at = datetime.fromtimestamp(payload["exp"], tz=timezone.utc)
+    await revoked_token_crud.revoke(db, jti=payload["jti"], expires_at=expires_at)
 
     return {"message": "Logged out successfully"}
