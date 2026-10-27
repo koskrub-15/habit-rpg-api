@@ -1,55 +1,75 @@
 from datetime import datetime, timedelta, timezone
-from typing import Any
+from typing import Any, Literal
 import uuid
 
 import jwt
-from passlib.context import CryptContext
+from pwdlib import PasswordHash
+from pwdlib.hashers.argon2 import Argon2Hasher
 
 from apps.core.config import settings
 
-pwd_context = CryptContext(schemes=["argon2"], deprecated="auto")
+TokenType = Literal["access", "refresh"]
+
+password_hash = PasswordHash((Argon2Hasher(),))
 
 
 def hash_password(password: str) -> str:
     """Hash a plain-text password using Argon2."""
-    return pwd_context.hash(password)
+    return password_hash.hash(password)
 
 
 def verify_password(plain: str, hashed: str) -> bool:
     """Verify a plain-text password against its Argon2 hash."""
-    return pwd_context.verify(plain, hashed)
+    return password_hash.verify(plain, hashed)
+
+
+def _create_token(
+    subject: int | str, token_type: TokenType, lifetime: timedelta
+) -> str:
+    payload: dict[str, Any] = {
+        "sub": str(subject),
+        "exp": datetime.now(timezone.utc) + lifetime,
+        "type": token_type,
+        "jti": str(uuid.uuid4()),
+    }
+    return jwt.encode(payload, settings.SECRET_KEY, algorithm=settings.ALGORITHM)
+
+
+def _decode_token(token: str, token_type: TokenType) -> dict[str, Any] | None:
+    try:
+        payload = jwt.decode(
+            token,
+            settings.SECRET_KEY,
+            algorithms=[settings.ALGORITHM],
+            options={"require": ["exp", "sub", "type", "jti"]},
+        )
+    except jwt.InvalidTokenError:
+        return None
+    if payload["type"] != token_type:
+        return None
+    return payload
 
 
 def create_access_token(
     subject: int | str, expires_delta: timedelta | None = None
 ) -> str:
     """Create a signed JWT access token."""
-    expire = datetime.now(timezone.utc) + (
-        expires_delta or timedelta(minutes=settings.ACCESS_TOKEN_EXPIRE_MINUTES)
+    return _create_token(
+        subject,
+        "access",
+        expires_delta or timedelta(minutes=settings.ACCESS_TOKEN_EXPIRE_MINUTES),
     )
-    payload: dict[str, Any] = {
-        "sub": str(subject),
-        "exp": expire,
-        "type": "access",
-        "jti": str(uuid.uuid4()),
-    }
-    return jwt.encode(payload, settings.SECRET_KEY, algorithm=settings.ALGORITHM)
 
 
 def create_refresh_token(
     subject: int | str, expires_delta: timedelta | None = None
 ) -> str:
     """Create a signed JWT refresh token."""
-    expire = datetime.now(timezone.utc) + (
-        expires_delta or timedelta(days=settings.REFRESH_TOKEN_EXPIRE_DAYS)
+    return _create_token(
+        subject,
+        "refresh",
+        expires_delta or timedelta(days=settings.REFRESH_TOKEN_EXPIRE_DAYS),
     )
-    payload: dict[str, Any] = {
-        "sub": str(subject),
-        "exp": expire,
-        "type": "refresh",
-        "jti": str(uuid.uuid4()),
-    }
-    return jwt.encode(payload, settings.SECRET_KEY, algorithm=settings.ALGORITHM)
 
 
 def decode_access_token(token: str) -> str | None:
@@ -58,29 +78,14 @@ def decode_access_token(token: str) -> str | None:
     Returns:
         User id as string, or None if token is invalid/expired.
     """
-    try:
-        payload = jwt.decode(
-            token, settings.SECRET_KEY, algorithms=[settings.ALGORITHM]
-        )
-        if payload.get("type") != "access":
-            return None
-        return payload.get("sub")
-    except jwt.InvalidTokenError:
-        return None
+    payload = _decode_token(token, "access")
+    return payload["sub"] if payload else None
 
 
-def decode_refresh_token(token: str) -> dict | None:
+def decode_refresh_token(token: str) -> dict[str, Any] | None:
     """Decode a JWT refresh token and return the full payload.
 
     Returns:
         Payload dict with 'sub', 'jti', 'exp' keys, or None if invalid/expired.
     """
-    try:
-        payload = jwt.decode(
-            token, settings.SECRET_KEY, algorithms=[settings.ALGORITHM]
-        )
-        if payload.get("type") != "refresh":
-            return None
-        return payload
-    except jwt.InvalidTokenError:
-        return None
+    return _decode_token(token, "refresh")
