@@ -24,6 +24,23 @@ async def test_register_user(client: AsyncClient, db_session: AsyncSession):
 
 
 @pytest.mark.asyncio
+async def test_register_duplicate_email_returns_409(
+    client: AsyncClient, db_session: AsyncSession
+):
+    payload = {
+        "name": "Duplicate User",
+        "email": "duplicate@example.com",
+        "password": "strongpassword",
+    }
+    first = await client.post("/api/v1/auth/register", json=payload)
+    second = await client.post("/api/v1/auth/register", json=payload)
+
+    assert first.status_code == 201
+    assert second.status_code == 409
+    assert second.json()["detail"] == "Email already registered"
+
+
+@pytest.mark.asyncio
 async def test_login_returns_tokens(client: AsyncClient, db_session: AsyncSession):
     """
     Tests that login returns access and refresh tokens.
