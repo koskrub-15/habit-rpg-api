@@ -27,7 +27,9 @@ async def register(user_in: UserCreate, db: AsyncSession = Depends(get_db)):
     """Register a new user account."""
     existing = await user_crud.get_by_email(db, user_in.email)
     if existing:
-        raise HTTPException(status_code=400, detail="Email already registered")
+        raise HTTPException(
+            status_code=status.HTTP_409_CONFLICT, detail="Email already registered"
+        )
 
     user_in.password = hash_password(user_in.password)
     return await user_crud.create(db, user_in)
